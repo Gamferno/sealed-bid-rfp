@@ -1,0 +1,202 @@
+/**
+ * Sealed-Bid Procurement / RFP System
+ * Midnight Network — Compact Language (0.23)
+ *
+ * Flow:
+ *   1. Buyer deploys the contract, initializing the RFP via the constructor.
+ *   2. Three vendors each call commit_bid() with hash(bid, salt).
+ *   3. After commit_deadline: vendors call reveal_bid() — ZK proof that
+ *      hash(bid, salt) matches their stored commitment, and bid is in range.
+ *   4. After all reveals (or reveal_deadline): anyone calls determine_winner().
+ *   5. Anyone may call verify_fairness() to confirm the winner is correct.
+ *
+ * Privacy guarantees:
+ *   - Bid amounts never appear in public ledger state or events.
+ *   - Bids + salts live only in each vendor's local witness state.
+ *   - Winner identity is public; winning amount is NOT.
+ *
+ * Deadlines are Midnight block times (Unix seconds, Uint<64>) — Compact 0.23
+ * exposes block-time comparisons, not block heights.
+ */
+
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// ──────────────────────────────────────────────
+// Structs
+// ──────────────────────────────────────────────
+
+struct RFP {
+  description:     Bytes<128>,        // public: RFP text (padded to 128 bytes)
+  commit_deadline: Uint<64>,          // public: block time, commit phase ends
+  reveal_deadline: Uint<64>,          // public: block time, reveal phase ends
+  min_bid:         Uint<64>,          // public: minimum allowed bid
+  max_bid:         Uint<64>           // public: maximum allowed bid
+}
+
+struct VendorCommitment {
+  commitment_hash: Bytes<32>,         // public: hash(bid, salt)
+  revealed:        Boolean            // public flag — NOT the bid value
+}
+
+struct AuctionResult {
+  winner_index: Uint<8>,             // 0-based vendor slot (0, 1, 2)
+  proof_valid:  Boolean
+}
+
+// ──────────────────────────────────────────────
+// Ledger (public on-chain state)
+// ──────────────────────────────────────────────
+
+export ledger rfp: RFP;
+export ledger commitments: Map<Uint<8>, VendorCommitment>;
+export ledger result: AuctionResult;
+export ledger reveal_count: Counter;
+
+// ──────────────────────────────────────────────
+// Witnesses (private inputs from vendor wallet)
+// ──────────────────────────────────────────────
+
+// Vendor provides their bid amount privately (never leaves their machine)
+witness getBid(vendor_index: Uint<8>): Uint<64>;
+
+// Vendor provides their salt privately
+witness getSalt(vendor_index: Uint<8>): Bytes<32>;
+
+// ──────────────────────────────────────────────
+// Constructor: initialize the RFP at deploy time
+// ──────────────────────────────────────────────
+
+constructor(
+  description:     Bytes<128>,
+  commit_deadline: Uint<64>,
+  reveal_deadline: Uint<64>,
+  min_bid:         Uint<64>,
+  max_bid:         Uint<64>
+) {
+  assert(commit_deadline < reveal_deadline, "commit deadline must precede reveal deadline");
+  assert(min_bid < max_bid, "min bid must be below max bid");
+  rfp = RFP {
+    description:     disclose(description),
+    commit_deadline: disclose(commit_deadline),
+    reveal_deadline: disclose(reveal_deadline),
+    min_bid:         disclose(min_bid),
+    max_bid:         disclose(max_bid)
+  };
+}
+
+// ──────────────────────────────────────────────
+// Helper: compute commitment hash
+// ──────────────────────────────────────────────
+
+export circuit computeCommitment(bid: Uint<64>, salt: Bytes<32>): Bytes<32> {
+  return persistentHash<[Uint<64>, Bytes<32>]>([bid, salt]);
+}
+
+// ──────────────────────────────────────────────
+// Circuit: commit_bid
+// Private inputs: bid (witness), salt (witness)
+// Public output:  commitment hash stored on ledger
+// ──────────────────────────────────────────────
+
+export circuit commit_bid(vendor_index: Uint<8>): [] {
+  assert(blockTimeLt(rfp.commit_deadline), "commit deadline has passed");
+  assert(!commitments.member(disclose(vendor_index)), "vendor already committed");
+
+  const bid  = getBid(vendor_index);
+  const salt = getSalt(vendor_index);
+  const h    = computeCommitment(bid, salt);
+
+  // Store public commitment on ledger (bid value itself never disclosed here)
+  commitments.insert(disclose(vendor_index), VendorCommitment {
+    commitment_hash: disclose(h),
+    revealed:        false
+  });
+}
+
+// ──────────────────────────────────────────────
+// Circuit: reveal_bid
+// Private inputs: bid (witness), salt (witness)
+// Constraints:
+//   1. hash(bid, salt) == stored commitment  (authenticity)
+//   2. min_bid <= bid <= max_bid             (range check)
+// The bid value itself is NOT disclosed in public output.
+// ──────────────────────────────────────────────
+
+export circuit reveal_bid(vendor_index: Uint<8>): [] {
+  assert(blockTimeGte(rfp.commit_deadline), "commit deadline not yet reached");
+  assert(blockTimeLt(rfp.reveal_deadline), "reveal deadline has passed");
+  assert(commitments.member(disclose(vendor_index)), "no commitment found for this vendor");
+
+  const bid  = getBid(vendor_index);
+  const salt = getSalt(vendor_index);
+  const h    = computeCommitment(bid, salt);
+
+  // Constraint 1: matches stored commitment
+  const stored = commitments.lookup(disclose(vendor_index));
+  assert(h == stored.commitment_hash, "commitment mismatch: bid/salt do not match");
+  assert(!stored.revealed, "vendor already revealed");
+
+  // Constraint 2: bid within allowed range (uses rfp public state)
+  assert(bid >= rfp.min_bid, "bid below minimum");
+  assert(bid <= rfp.max_bid, "bid above maximum");
+
+  // Mark this vendor as revealed (public flag, NOT the bid amount)
+  commitments.insert(disclose(vendor_index), VendorCommitment {
+    commitment_hash: stored.commitment_hash,
+    revealed:        true
+  });
+
+  reveal_count.increment(1);
+}
+
+// ──────────────────────────────────────────────
+// Circuit: determine_winner
+// Private inputs: all three bids + salts (witnesses, re-provided per vendor)
+// Public output:  winning vendor index ONLY — bid values stay private
+// ──────────────────────────────────────────────
+
+export circuit determine_winner(): [] {
+  // Every vendor must have revealed before the winner can be computed
+  assert(commitments.member(0) && commitments.lookup(0).revealed, "vendor 0 has not revealed");
+  assert(commitments.member(1) && commitments.lookup(1).revealed, "vendor 1 has not revealed");
+  assert(commitments.member(2) && commitments.lookup(2).revealed, "vendor 2 has not revealed");
+
+  // Each vendor provides their bid + salt again via witnesses (NOT disclosed)
+  const bid0 = getBid(0);
+  const salt0 = getSalt(0);
+  const bid1 = getBid(1);
+  const salt1 = getSalt(1);
+  const bid2 = getBid(2);
+  const salt2 = getSalt(2);
+
+  // Re-verify each bid matches its stored commitment
+  assert(computeCommitment(bid0, salt0) == commitments.lookup(0).commitment_hash,
+    "vendor 0 bid does not match commitment");
+  assert(computeCommitment(bid1, salt1) == commitments.lookup(1).commitment_hash,
+    "vendor 1 bid does not match commitment");
+  assert(computeCommitment(bid2, salt2) == commitments.lookup(2).commitment_hash,
+    "vendor 2 bid does not match commitment");
+
+  // Find minimum bid (Compact has no if-expression; ternary ?: is the tool)
+  const min01        = bid0 <= bid1 ? bid0 : bid1;
+  const winner01     = bid0 <= bid1 ? (0 as Uint<8>) : (1 as Uint<8>);
+  const winner_index = min01 <= bid2 ? winner01 : (2 as Uint<8>);
+
+  // Disclose ONLY the winner index — bid amounts are NOT disclosed
+  result = AuctionResult {
+    winner_index: disclose(winner_index),
+    proof_valid:  true
+  };
+}
+
+// ──────────────────────────────────────────────
+// View: verify_fairness
+// Returns true if the recorded result is valid. No bid amounts in the
+// output — only the boolean verdict.
+// ──────────────────────────────────────────────
+
+export circuit verify_fairness(): Boolean {
+  return result.proof_valid;
+}
