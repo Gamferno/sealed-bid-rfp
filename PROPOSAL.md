@@ -42,10 +42,10 @@ This satisfies Midnight's core thesis: **prove what matters, keep commercial sec
 ## Mainnet Feasibility
 
 ### 1. Gas & ZK Proving Performance
-Midnight offloads ZK proof generation to client-side proving (via the local proof server / WASM runtime), keeping on-chain verification gas costs constant and lightweight ($O(1)$ verification complexity per circuit execution). On Midnight Mainnet, transaction fees are predictable and independent of circuit depth.
+Midnight offloads ZK proof generation to client-side proving (via the local proof server / WASM runtime), keeping on-chain verification gas costs constant and lightweight (`O(1)` verification complexity per circuit execution). On Midnight Mainnet, transaction fees are predictable and independent of circuit depth.
 
 ### 2. Scalability Beyond 3 Vendors
-The 3-vendor fixed model serves as an efficient prototype. On Mainnet, arbitrary $N$-vendor scalability can be achieved via:
+The 3-vendor fixed model serves as an efficient prototype. On Mainnet, arbitrary `N`-vendor scalability can be achieved via:
 - **Incremental Winner Updates**: Comparing new reveals against the current running minimum on-chain in ZK.
 - **Merkle Tree State Trees**: Storing commitments in a Sparse Merkle Tree (SMT) enabling thousands of concurrent participants.
 

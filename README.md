@@ -18,8 +18,8 @@
 ## What This Does
 
 1. **Buyer** posts an RFP: description, allowed bid range, and phase deadlines (commit and reveal).
-2. **Vendors** each select a private bid $b$ and generate a cryptographic random salt $s$. They compute $\text{commitment} = \text{persistentHash}(b, s)$ and submit the commitment hash on-chain. The actual numerical bid never leaves their machine.
-3. After the commit deadline, vendors reveal: the ZK circuit proves $\text{persistentHash}(b, s) == \text{commitment}$ and $\text{min\_bid} \le b \le \text{max\_bid}$ without disclosing $b$ in any public output or transaction logs.
+2. **Vendors** each select a private bid `b` and generate a cryptographic random salt `s`. They compute `commitment = persistentHash(b, s)` and submit the commitment hash on-chain. The actual numerical bid never leaves their machine.
+3. After the commit deadline, vendors reveal: the ZK circuit proves `persistentHash(b, s) == commitment` and `min_bid <= b <= max_bid` without disclosing `b` in any public output or transaction logs.
 4. Once reveals complete, `determine_winner()` is called. The ZK circuit computes the lowest bid across all participants in zero knowledge and emits **only** the winning vendor's slot index.
 5. Anyone can call `verify_fairness()` to confirm the winner was chosen strictly according to the lowest bid rule.
 
