@@ -8,7 +8,7 @@ import time
 import urllib.request
 import websockets
 from PIL import Image, ImageDraw, ImageFont
-from gtts import gTTS
+import edge_tts
 
 TEMP_DIR = "docs/video_temp"
 FRAME_DIR = "docs/video_temp/frames"
@@ -18,7 +18,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 os.makedirs(FRAME_DIR, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────
-# 1. Voiceover Definitions & Generation
+# 1. Voiceover Definitions & Neural English Male Generation
 # ─────────────────────────────────────────────────────────────────
 VOICEOVERS = [
     ("s1_intro", "Create RFP Round", "Welcome to Sealed-Bid RFP, a privacy-preserving procurement platform built on the Midnight Network. A buyer deploys an RFP round with budget constraints and commit deadlines."),
@@ -29,36 +29,41 @@ VOICEOVERS = [
     ("s6_tests", "Integration Test Suite", "Backed by 9 comprehensive integration tests and strict witness isolation, Sealed-Bid RFP brings true commercial privacy to decentralized procurement on Midnight.")
 ]
 
-print("1. Generating voiceovers...")
+print("1. Generating high-quality English male neural voiceover (en-US-ChristopherNeural)...")
 audio_info = {}
-for key, title, text in VOICEOVERS:
-    mp3_path = f"{TEMP_DIR}/{key}.mp3"
-    wav_path = f"{TEMP_DIR}/{key}.wav"
-    tts = gTTS(text=text, lang="en", tld="com", slow=False)
-    tts.save(mp3_path)
-    subprocess.run(["ffmpeg", "-y", "-i", mp3_path, "-ar", "44100", "-ac", "2", wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", wav_path], stdout=subprocess.PIPE, text=True)
-    dur = float(probe.stdout.strip())
-    pad_dur = dur + 0.8
-    audio_info[key] = {
-        "title": title,
-        "text": text,
-        "wav": wav_path,
-        "duration": pad_dur
-    }
-    print(f"   - {key}: {pad_dur:.2f}s")
+
+async def generate_voiceovers():
+    for key, title, text in VOICEOVERS:
+        mp3_path = f"{TEMP_DIR}/{key}.mp3"
+        wav_path = f"{TEMP_DIR}/{key}.wav"
+        tts = edge_tts.Communicate(text=text, voice="en-US-ChristopherNeural", rate="+3%")
+        await tts.save(mp3_path)
+        subprocess.run(["ffmpeg", "-y", "-i", mp3_path, "-ar", "44100", "-ac", "2", wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", wav_path], stdout=subprocess.PIPE, text=True)
+        dur = float(probe.stdout.strip())
+        pad_dur = dur + 0.6
+        audio_info[key] = {
+            "title": title,
+            "text": text,
+            "wav": wav_path,
+            "duration": pad_dur
+        }
+        print(f"   - {key}: {pad_dur:.2f}s")
+
+asyncio.run(generate_voiceovers())
 
 # ─────────────────────────────────────────────────────────────────
-# 2. Browser Automation & Screen Capture
+# 2. 1080p Browser Automation & Fullscreen Capture
 # ─────────────────────────────────────────────────────────────────
-print("2. Starting Chromium for UI automation...")
+print("2. Starting Chromium in full 1920x1080 fullscreen mode...")
 proc = subprocess.Popen([
     "/usr/bin/chromium",
     "--headless=new",
     "--remote-debugging-port=9222",
     "--disable-gpu",
     "--no-sandbox",
-    "--window-size=1280,800"
+    "--window-size=1920,1080",
+    "--force-device-scale-factor=1"
 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1.2)
 
@@ -87,13 +92,23 @@ async def capture_ui():
             return r.get("result", {}).get("value")
 
         async def snap(name):
-            res = await send_cmd("Page.captureScreenshot", {"format": "png"})
+            res = await send_cmd("Page.captureScreenshot", {
+                "format": "png",
+                "clip": {"x": 0, "y": 0, "width": 1920, "height": 1080, "scale": 1}
+            })
             img_bytes = base64.b64decode(res["data"])
             path = f"{TEMP_DIR}/{name}.png"
             with open(path, "wb") as f:
                 f.write(img_bytes)
             screenshots[name] = path
-            print(f"   Captured {name}.png")
+            print(f"   Captured {name}.png (1920x1080)")
+
+        await send_cmd("Emulation.setDeviceMetricsOverride", {
+            "width": 1920,
+            "height": 1080,
+            "deviceScaleFactor": 1,
+            "mobile": False
+        })
 
         await send_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": """
@@ -293,9 +308,9 @@ proc.terminate()
 screenshots["s6_test_suite"] = "docs/screenshots/test-output.png"
 
 # ─────────────────────────────────────────────────────────────────
-# 3. Frame Overlay & Video Clip Generation
+# 3. 1080p Frame Composition & Subtle Floating Subtitle Bar
 # ─────────────────────────────────────────────────────────────────
-print("3. Composing video frames with subtitle overlays...")
+print("3. Composing 1080p FHD video frames with floating subtitle overlays...")
 
 bold_font_path = "/usr/share/fonts/TTF/JetBrainsMono-Bold.ttf"
 reg_font_path = "/usr/share/fonts/TTF/JetBrainsMono-Regular.ttf"
@@ -303,28 +318,28 @@ if not os.path.exists(bold_font_path):
     bold_font_path = "/usr/share/fonts/TTF/DejaVuSansMono-Bold.ttf"
     reg_font_path = "/usr/share/fonts/TTF/DejaVuSansMono.ttf"
 
-title_font = ImageFont.truetype(bold_font_path, 16)
-sub_font = ImageFont.truetype(reg_font_path, 14)
-badge_font = ImageFont.truetype(bold_font_path, 11)
+title_font = ImageFont.truetype(bold_font_path, 20)
+sub_font = ImageFont.truetype(reg_font_path, 17)
+badge_font = ImageFont.truetype(bold_font_path, 13)
 
 def render_overlay_frame(base_img_path, scene_title, scene_text):
     base = Image.open(base_img_path).convert("RGBA")
-    base = base.resize((1280, 800), Image.Resampling.LANCZOS)
+    base = base.resize((1920, 1080), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(base)
 
-    # Bottom Glassmorphic Subtitle Banner
-    bx0, by0, bx1, by1 = 40, 685, 1240, 775
-    draw.rounded_rectangle([bx0, by0, bx1, by1], radius=10, fill=(15, 23, 42, 235), outline=(56, 189, 248, 180), width=1)
+    # Sleek floating subtitle pill at bottom (height 100px, width 1560px centered)
+    bx0, by0, bx1, by1 = 180, 940, 1740, 1045
+    draw.rounded_rectangle([bx0, by0, bx1, by1], radius=14, fill=(10, 15, 26, 230), outline=(99, 102, 241, 160), width=2)
 
-    # Tag / Badge
-    draw.rounded_rectangle([bx0 + 16, by0 + 12, bx0 + 140, by0 + 32], radius=4, fill=(30, 58, 138, 255))
-    draw.text((bx0 + 24, by0 + 15), "MIDNIGHT ZK", fill=(147, 197, 253), font=badge_font)
+    # Midnight ZK Chip
+    draw.rounded_rectangle([bx0 + 20, by0 + 14, bx0 + 160, by0 + 38], radius=6, fill=(49, 46, 129, 255))
+    draw.text((bx0 + 30, by0 + 18), "MIDNIGHT ZK", fill=(199, 210, 254), font=badge_font)
 
     # Scene Title
-    draw.text((bx0 + 155, by0 + 13), scene_title.upper(), fill=(255, 255, 255), font=title_font)
+    draw.text((bx0 + 180, by0 + 15), scene_title.upper(), fill=(255, 255, 255), font=title_font)
 
-    # Voiceover text (wrapped)
-    max_w = 1140
+    # Voiceover text (wrapped across 2 lines max)
+    max_w = 1500
     words = scene_text.split()
     lines = []
     cur_line = ""
@@ -339,14 +354,13 @@ def render_overlay_frame(base_img_path, scene_title, scene_text):
     if cur_line:
         lines.append(cur_line)
 
-    ty = by0 + 40
+    ty = by0 + 48
     for l in lines[:2]:
-        draw.text((bx0 + 18, ty), l, fill=(203, 213, 225), font=sub_font)
-        ty += 20
+        draw.text((bx0 + 22, ty), l, fill=(226, 232, 240), font=sub_font)
+        ty += 24
 
     return base.convert("RGB")
 
-# Scenes mapping to screenshots
 SCENE_CONFIG = [
     ("s1_intro", [("s1_create_form", 0.5), ("s1_deployed", 0.5)]),
     ("s2_bids", [("s2_sealed_bids", 1.0)]),
@@ -357,8 +371,8 @@ SCENE_CONFIG = [
 ]
 
 segment_videos = []
-
 fps = 30
+
 for scene_key, shots in SCENE_CONFIG:
     info = audio_info[scene_key]
     dur = info["duration"]
@@ -368,7 +382,6 @@ for scene_key, shots in SCENE_CONFIG:
 
     total_frames = int(dur * fps)
     
-    # Generate frames
     frame_idx = 0
     shot_idx = 0
     shots_count = len(shots)
@@ -384,13 +397,14 @@ for scene_key, shots in SCENE_CONFIG:
             frame_idx += 1
         shot_idx += 1
 
-    # Render video segment with FFmpeg + sync audio
     cmd = [
         "ffmpeg", "-y",
         "-framerate", str(fps),
         "-i", f"{seg_frames_dir}/frame_%05d.png",
         "-i", info["wav"],
         "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "18",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "192k",
@@ -399,12 +413,12 @@ for scene_key, shots in SCENE_CONFIG:
     ]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     segment_videos.append(seg_video_path)
-    print(f"   Created segment {seg_video_path} ({dur:.2f}s)")
+    print(f"   Created 1080p segment {seg_video_path} ({dur:.2f}s)")
 
 # ─────────────────────────────────────────────────────────────────
-# 4. Concatenate Segments into Final Demo Video
+# 4. Final 1080p Master Concatenation
 # ─────────────────────────────────────────────────────────────────
-print("4. Concatenating all segments into final MP4 video...")
+print("4. Concatenating all 1080p segments into final MP4 video...")
 concat_list_path = f"{TEMP_DIR}/concat_list.txt"
 with open(concat_list_path, "w") as f:
     for seg in segment_videos:
@@ -416,6 +430,8 @@ cmd_final = [
     "-safe", "0",
     "-i", concat_list_path,
     "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "18",
     "-pix_fmt", "yuv420p",
     "-c:a", "aac",
     "-movflags", "+faststart",
@@ -423,13 +439,14 @@ cmd_final = [
 ]
 subprocess.run(cmd_final, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", OUTPUT_VIDEO], stdout=subprocess.PIPE, text=True)
-final_dur = float(probe.stdout.strip())
+probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=width,height", "-of", "default=noprint_wrappers=1", OUTPUT_VIDEO], stdout=subprocess.PIPE, text=True)
+print(probe.stdout)
 file_size_mb = os.path.getsize(OUTPUT_VIDEO) / (1024 * 1024)
 
 print(f"\n=======================================================")
-print(f" SUCCESS! Demo Video Generated:")
-print(f" File:     {OUTPUT_VIDEO}")
-print(f" Duration: {final_dur:.2f} seconds")
-print(f" Size:     {file_size_mb:.2f} MB")
+print(f" SUCCESS! 1080p FHD Video Generated:")
+print(f" File:       {OUTPUT_VIDEO}")
+print(f" Resolution: 1920x1080 (FHD)")
+print(f" Voice:      English Male (Neural AI)")
+print(f" Size:       {file_size_mb:.2f} MB")
 print(f"=======================================================\n")
