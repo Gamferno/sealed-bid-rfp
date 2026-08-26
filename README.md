@@ -1,6 +1,6 @@
 # Sealed-Bid Procurement / RFP System
 
-![CI](https://github.com/midnight-ntwrk/sealed-bid-rfp/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/Gamferno/sealed-bid-rfp/actions/workflows/ci.yml/badge.svg)](https://github.com/Gamferno/sealed-bid-rfp/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-blue?style=flat&logo=vercel)](https://sealed-bid-rfp.vercel.app)
 [![Demo Video](https://img.shields.io/badge/Demo_Video-Google_Drive-red?style=flat&logo=googledrive)](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
 
@@ -136,7 +136,7 @@ Zero-knowledge minimum evaluation discloses only the winner's index and records 
 
 ```bash
 # Clone
-git clone https://github.com/midnight-ntwrk/sealed-bid-rfp.git
+git clone https://github.com/Gamferno/sealed-bid-rfp.git
 cd sealed-bid-rfp
 
 # Install dependencies
