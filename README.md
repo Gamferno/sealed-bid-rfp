@@ -1,7 +1,7 @@
 # Sealed-Bid Procurement / RFP System
 
 [![CI](https://github.com/Gamferno/sealed-bid-rfp/actions/workflows/ci.yml/badge.svg)](https://github.com/Gamferno/sealed-bid-rfp/actions/workflows/ci.yml)
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-blue?style=flat&logo=vercel)](https://sealed-bid-rfp.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-blue?style=flat&logo=vercel)](https://sealed-bid-rfp-ui.vercel.app/)
 [![Demo Video](https://img.shields.io/badge/Demo_Video-Google_Drive-red?style=flat&logo=googledrive)](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
 
 > A privacy-preserving procurement platform where vendors submit cryptographically sealed bids on an RFP, the lowest bid wins on-chain, and every losing bid stays permanently private — while anyone can mathematically verify the winner was chosen fairly. Built on the [Midnight Network](https://midnight.network).
@@ -11,7 +11,7 @@
 ## 🔗 Live Demo & Video Walkthrough
 
 - 🌐 **Live DApp Demo**: [https://sealed-bid-rfp.vercel.app](https://sealed-bid-rfp.vercel.app)
-- 🎥 **Video Demo (1080p FHD)**: [Google Drive Video Link](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
+- 🎥 **Video Demo**: [Google Drive Video Link](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
 
 ---
 
