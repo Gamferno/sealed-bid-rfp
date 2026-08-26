@@ -1,7 +1,12 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   cacheDir: './.vite',
@@ -58,6 +63,9 @@ export default defineConfig({
     ],
   },
   resolve: {
+    alias: {
+      'sealed-bid-contract': path.resolve(__dirname, '../contracts/src/index.ts'),
+    },
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.wasm'],
     mainFields: ['browser', 'module', 'main'],
   },

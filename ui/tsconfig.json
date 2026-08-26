@@ -11,7 +11,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "sealed-bid-contract": ["../contracts/src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../contracts/src"]
 }
