@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd contracts && npm run build && cd ../ui && npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "ui/dist",
-  "installCommand": "npm install",
-  "framework": null
+  "installCommand": "npm install --legacy-peer-deps || npm install",
+  "framework": "vite"
 }

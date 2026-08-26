@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "mkdir -p ./public/keys ./public/zkir && cp -r ../contracts/managed/sealed-bid/keys/* ./public/keys/ && cp -r ../contracts/managed/sealed-bid/zkir/* ./public/zkir/ && vite",
-    "build": "tsc && vite build --mode preprod && cp -r ../contracts/managed/sealed-bid/keys ./dist/keys && cp -r ../contracts/managed/sealed-bid/zkir ./dist/zkir",
+    "build": "tsc && vite build --mode preprod && mkdir -p ./dist/keys ./dist/zkir && cp -Rf ../contracts/managed/sealed-bid/keys/. ./dist/keys/ && cp -Rf ../contracts/managed/sealed-bid/zkir/. ./dist/zkir/",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -12,6 +12,9 @@
     "build": "cd contracts && npm run build && cd ../ui && npm run build",
     "test": "cd contracts && npm test"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
     "typescript": "^5.9.3",
