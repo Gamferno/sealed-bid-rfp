@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd contracts && npm run build && cd ../ui && npm run build",
-  "outputDirectory": "ui/dist",
+  "buildCommand": "node -e \"const fs=require('fs'),cp=require('child_process');const r=fs.existsSync('contracts')?'.':'..';cp.execSync('node '+r+'/scripts/build-all.cjs',{stdio:'inherit'});\"",
+  "outputDirectory": "dist",
   "installCommand": "npm install --legacy-peer-deps || npm install",
   "framework": null
 }

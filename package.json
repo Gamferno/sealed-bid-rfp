@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "compile": "cd contracts && npm run compact",
-    "build": "cd contracts && npm run build && cd ../ui && npm run build",
+    "build": "node ./scripts/build-all.cjs",
     "test": "cd contracts && npm test"
   },
   "engines": {
