@@ -112,6 +112,8 @@ cd ui && npm run dev
 npm test
 ```
 
+![Test Output](./docs/screenshots/test-output.png)
+
 The test suite runs 9 automated tests verifying:
 1. Deterministic and collision-resistant commitment hashing
 2. Contract state transitions & initialization
@@ -122,6 +124,13 @@ The test suite runs 9 automated tests verifying:
 7. Rejection of out-of-range bids
 8. Prevention of double-commitments
 9. Total absence of raw bid leakage in public ledger structures
+
+---
+
+## Demo Video & Walkthrough Script
+
+- **Walkthrough Script**: See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a second-by-second 60-second video demo script and step-by-step recording guide.
+- **Live Demo Link**: `https://sealed-bid-rfp.vercel.app` *(Deployable via `vercel.json`)*
 
 ---
 
