@@ -129,7 +129,8 @@ The test suite runs 9 automated tests verifying:
 
 ## Demo Video & Walkthrough Script
 
-- **Walkthrough Script**: See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for a second-by-second 60-second video demo script and step-by-step recording guide.
+- **Demo Video (MP4)**: [docs/demo-video.mp4](./docs/demo-video.mp4) — Complete video walkthrough with synchronized narration and ZK proof demonstration.
+- **Walkthrough Script**: See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for the storyboard, script, and step-by-step recording guide.
 - **Live Demo Link**: `https://sealed-bid-rfp.vercel.app` *(Deployable via `vercel.json`)*
 
 ---
