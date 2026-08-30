@@ -1,12 +1,36 @@
-import * as runtime from '@midnight-ntwrk/compact-runtime';
-import { SealedBid, createWitnesses, type SealedBidPrivateState } from 'sealed-bid-contract';
+/**
+ * ContractService — Midnight Sealed-Bid RFP
+ *
+ * All operations (deploy, commit, reveal, determine winner, verify fairness) are
+ * backed by real Midnight SDK calls:
+ *   • deployContract()        — creates the contract on-chain; returns a real address
+ *   • findDeployedContract()  — reconnects to an existing on-chain contract
+ *   • found.callTx.*()        — submits a ZK-proven transaction for each circuit
+ *   • getPublicStates()       — reads live ledger state from the indexer
+ *
+ * Private witness data (bid + salt) is persisted in localStorage so vendors can
+ * reveal from the same browser session.  It is NEVER sent to the network.
+ *
+ * A localStorage cache (StoredRFPData) is kept as a fast read-layer for the UI.
+ * It is populated/refreshed after each on-chain confirmation.
+ */
+
+import { deployContract, findDeployedContract, getPublicStates } from '@midnight-ntwrk/midnight-js-contracts';
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { SealedBid, CompiledSealedBidContract, type SealedBidPrivateState } from 'sealed-bid-contract';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import type { RFPState, VendorSlot } from './hooks/useRFP';
+import { buildProviders, buildReadProviders } from './midnightProviders';
+import { makeLocalStoragePrivateStateProvider } from './localStoragePrivateStateProvider';
 
-const STORAGE_PREFIX = 'rfp_contract_state:';
+// ─── Env ──────────────────────────────────────────────────────────────────────
+const NETWORK_ID = (import.meta.env.VITE_NETWORK_ID ?? 'preprod') as string;
+
+// ─── Storage keys ─────────────────────────────────────────────────────────────
+const STORAGE_PREFIX    = 'rfp_contract_state:';
 const SYNC_CHANNEL_NAME = 'midnight_sealed_bid_rfp_sync';
 
-// BroadcastChannel for cross-tab real-time state synchronization
+// ─── BroadcastChannel for cross-tab sync ──────────────────────────────────────
 let syncChannel: BroadcastChannel | null = null;
 try {
   if (typeof BroadcastChannel !== 'undefined') {
@@ -16,11 +40,12 @@ try {
   syncChannel = null;
 }
 
+// ─── Utility exports (used by other modules) ──────────────────────────────────
+
 export function notifyStateChange(contractAddress: string): void {
   if (syncChannel) {
     syncChannel.postMessage({ type: 'STATE_UPDATED', contractAddress });
   }
-  // Dispatch custom window event
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('rfp_state_changed', { detail: { contractAddress } }));
   }
@@ -46,9 +71,12 @@ export function stringToBytes128(str: string): Uint8Array {
   return buf;
 }
 
+/** Compute Poseidon commitment hash using the compiled Compact circuit. */
 export function computeCommitment(bid: bigint, salt: Uint8Array): Uint8Array {
   return SealedBid.pureCircuits.computeCommitment(bid, salt);
 }
+
+// ─── LocalStorage RFP cache types ────────────────────────────────────────────
 
 export type StoredVendorCommitment = {
   slot: number;
@@ -62,8 +90,8 @@ export type StoredRFPData = {
   contractAddress: string;
   creatorAddress: string;
   description: string;
-  commitDeadline: number; // Unix timestamp seconds
-  revealDeadline: number; // Unix timestamp seconds
+  commitDeadline: number; // Unix timestamp (seconds)
+  revealDeadline: number;
   minBid: string;
   maxBid: string;
   createdAt: number;
@@ -90,7 +118,40 @@ export function saveStoredRFP(data: StoredRFPData): void {
   notifyStateChange(data.contractAddress);
 }
 
+// ─── Private witness helpers ──────────────────────────────────────────────────
+
+/** Derive the PrivateStateId for a given vendor in a given round. */
+function privateStateId(contractAddress: string, walletAddress: string): string {
+  return `${contractAddress}:${walletAddress.toLowerCase()}`;
+}
+
+/** Read private state for a vendor from the localStorage provider. */
+async function readPrivateState(
+  contractAddress: string,
+  walletAddress: string,
+): Promise<SealedBidPrivateState | null> {
+  const provider = makeLocalStoragePrivateStateProvider();
+  return provider.get(privateStateId(contractAddress, walletAddress));
+}
+
+// ─── ContractService ──────────────────────────────────────────────────────────
+
 export class ContractService {
+
+  // ── Deploy RFP contract ──────────────────────────────────────────────────
+
+  /**
+   * Deploys the sealed-bid RFP contract to Midnight Preprod.
+   *
+   * Calls `deployContract()` which:
+   *   1. Runs the constructor circuit locally to produce an unproven tx
+   *   2. Asks the proof server to generate a ZK proof
+   *   3. Balances the tx via the wallet
+   *   4. Submits to the Midnight network
+   *   5. Waits for on-chain confirmation
+   *
+   * Returns the real, verifiable contract address from the blockchain.
+   */
   static async createRFP(params: {
     description: string;
     commitDurationSeconds: number;
@@ -98,8 +159,12 @@ export class ContractService {
     minBid: bigint;
     maxBid: bigint;
     creatorAddress: string;
-    wallet?: ConnectedAPI | null;
+    wallet: ConnectedAPI;
+    onStatus?: (msg: string) => void;
   }): Promise<{ contractAddress: string }> {
+    if (!params.wallet) {
+      throw new Error('A connected Midnight wallet is required to deploy a contract.');
+    }
     if (params.minBid >= params.maxBid) {
       throw new Error('Minimum bid must be strictly lower than maximum budget.');
     }
@@ -107,34 +172,43 @@ export class ContractService {
       throw new Error('Phase durations must be greater than zero.');
     }
 
+    // Set network ID globally (required by Midnight SDK before any transaction)
+    setNetworkId(NETWORK_ID);
+
     const now = Math.floor(Date.now() / 1000);
     const commitDeadline = now + params.commitDurationSeconds;
     const revealDeadline = commitDeadline + params.revealDurationSeconds;
 
-    // Generate unique 64-char hex contract address
-    const randomBytes = new Uint8Array(32);
-    crypto.getRandomValues(randomBytes);
-    const contractAddress = bytesToHex(randomBytes);
-
     const descBytes = stringToBytes128(params.description);
-    const witnesses = createWitnesses();
-    const contract = new SealedBid.Contract(witnesses);
 
-    const constructorContext = {
-      initialPrivateState: {} as SealedBidPrivateState,
-      initialZswapLocalState: ({} as any),
-    };
+    params.onStatus?.('Building providers & connecting to Midnight Preprod indexer…');
+    const providers = await buildProviders(params.wallet);
 
-    // Execute Compact constructor
-    contract.initialState(
-      constructorContext,
-      descBytes,
-      BigInt(commitDeadline),
-      BigInt(revealDeadline),
-      params.minBid,
-      params.maxBid,
-    );
+    // Private state ID for the deployer (no bid/salt needed for deployment)
+    const psId = `deploy:${params.creatorAddress.toLowerCase()}`;
+    const initialPrivateState: SealedBidPrivateState = {};
 
+    params.onStatus?.('Deploying Compact contract to Midnight Preprod — awaiting ZK proof (30–60 s)…');
+
+    const deployed = await deployContract(providers as any, {
+      compiledContract: CompiledSealedBidContract as any,
+      privateStateId: psId,
+      initialPrivateState,
+      args: [
+        descBytes,
+        BigInt(commitDeadline),
+        BigInt(revealDeadline),
+        params.minBid,
+        params.maxBid,
+      ],
+    } as any);
+
+    // The REAL on-chain contract address returned by the blockchain
+    const contractAddress = deployed.deployTxData.public.contractAddress as string;
+
+    params.onStatus?.(`Contract deployed at ${contractAddress.slice(0, 16)}… — saving state…`);
+
+    // Persist to the local read-layer cache
     const storedData: StoredRFPData = {
       contractAddress,
       creatorAddress: params.creatorAddress,
@@ -155,16 +229,30 @@ export class ContractService {
     return { contractAddress };
   }
 
+  // ── Commit bid ───────────────────────────────────────────────────────────
+
+  /**
+   * Submits a `commit_bid` transaction to the contract.
+   *
+   * The bid and salt are private witnesses — they are NOT included in any
+   * on-chain state or transaction payload. Only the 32-byte Poseidon hash
+   * (commitment) appears on the public ledger.
+   */
   static async submitCommitment(params: {
     contractAddress: string;
     walletAddress: string;
     bid: bigint;
     salt: Uint8Array;
-    wallet?: ConnectedAPI | null;
+    wallet: ConnectedAPI;
+    onStatus?: (msg: string) => void;
   }): Promise<{ slot: number; commitmentHashHex: string }> {
+    if (!params.wallet) {
+      throw new Error('A connected Midnight wallet is required to submit a bid.');
+    }
+
     const stored = getStoredRFP(params.contractAddress);
     if (!stored) {
-      throw new Error(`Contract ${params.contractAddress} not found.`);
+      throw new Error(`Contract ${params.contractAddress} not found. Create an RFP first.`);
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -172,33 +260,49 @@ export class ContractService {
       throw new Error('The Commit Phase has closed for this RFP round.');
     }
 
-    // Check if this wallet already committed
     const normalizedWallet = params.walletAddress.toLowerCase();
     if (stored.walletToSlot[normalizedWallet] !== undefined) {
       const existingSlot = stored.walletToSlot[normalizedWallet];
-      throw new Error(`Wallet ${params.walletAddress.slice(0, 12)}… has already submitted a bid in Slot #${existingSlot}.`);
+      throw new Error(
+        `Wallet ${params.walletAddress.slice(0, 12)}… has already submitted a bid in Slot #${existingSlot}.`,
+      );
     }
 
-    // Assign next available slot index (0, 1, 2, 3, ...)
+    // Slot index = number of existing commitments
     const slot = Object.keys(stored.commitments).length;
 
-    // Compute ZK commitment hash = persistentHash(bid, salt)
+    // Compute commitment hash locally (for the cache — same value the circuit computes)
     const commitment = computeCommitment(params.bid, params.salt);
     const hashHex = bytesToHex(commitment);
 
-    // Save private state locally (bid + salt) isolated for this wallet
-    const privateKey = `rfp:${params.contractAddress}:wallet:${normalizedWallet}`;
-    localStorage.setItem(
-      privateKey,
-      JSON.stringify({
-        slot,
-        bid: params.bid.toString(),
-        salt: bytesToHex(params.salt),
-        walletAddress: params.walletAddress,
-      }),
-    );
+    setNetworkId(NETWORK_ID);
 
-    // Update public state
+    params.onStatus?.('Saving private witness (bid + salt) to local vault…');
+    const psId = privateStateId(params.contractAddress, params.walletAddress);
+    const privateStateProv = makeLocalStoragePrivateStateProvider();
+    await privateStateProv.set(psId, {
+      bid:         params.bid,
+      salt:        params.salt,
+      vendorIndex: slot,
+    });
+
+    params.onStatus?.('Building providers & finding deployed contract…');
+    const providers = await buildProviders(params.wallet);
+
+    const found = await findDeployedContract(providers as any, {
+      compiledContract: CompiledSealedBidContract as any,
+      contractAddress:  params.contractAddress as any,
+      privateStateId:   psId,
+    } as any);
+
+    params.onStatus?.(`Generating ZK proof for commit_bid (slot ${slot}) — 30–60 s…`);
+
+    // Real ZK transaction: locally proves commit_bid circuit, submits tx on-chain
+    await found.callTx.commit_bid(BigInt(slot));
+
+    params.onStatus?.('Transaction confirmed on Midnight ledger. Updating local state…');
+
+    // Update local read-layer cache
     stored.commitments[slot] = {
       slot,
       walletAddress: params.walletAddress,
@@ -207,24 +311,41 @@ export class ContractService {
       committedAt: now,
     };
     stored.walletToSlot[normalizedWallet] = slot;
-
     saveStoredRFP(stored);
+
     return { slot, commitmentHashHex: hashHex };
   }
 
+  // ── Reveal bid ───────────────────────────────────────────────────────────
+
+  /**
+   * Submits a `reveal_bid` transaction.
+   *
+   * The ZK circuit proves (without disclosing the values):
+   *   1. hash(bid, salt) == stored commitment  (authenticity)
+   *   2. min_bid <= bid <= max_bid             (range check)
+   *
+   * Private bid and salt are loaded from the localStorage private state
+   * that was saved during `submitCommitment()`.
+   */
   static async revealBid(params: {
     contractAddress: string;
     walletAddress: string;
-    wallet?: ConnectedAPI | null;
+    wallet: ConnectedAPI;
+    onStatus?: (msg: string) => void;
   }): Promise<{ success: boolean }> {
+    if (!params.wallet) {
+      throw new Error('A connected Midnight wallet is required to reveal a bid.');
+    }
+
     const stored = getStoredRFP(params.contractAddress);
     if (!stored) {
       throw new Error(`Contract ${params.contractAddress} not found.`);
     }
 
     const now = Math.floor(Date.now() / 1000);
-    if (now < stored.commitDeadline && !stored.earlyClosed) {
-      throw new Error('Commit phase is still active. Please wait for Reveal phase to open.');
+    if (now < stored.commitDeadline) {
+      throw new Error('Commit phase is still active on-chain. Please wait for the Reveal phase countdown to finish.');
     }
     if (now >= stored.revealDeadline) {
       throw new Error('The Reveal Phase deadline has passed.');
@@ -233,7 +354,9 @@ export class ContractService {
     const normalizedWallet = params.walletAddress.toLowerCase();
     const slot = stored.walletToSlot[normalizedWallet];
     if (slot === undefined || !stored.commitments[slot]) {
-      throw new Error(`No commitment found for wallet ${params.walletAddress.slice(0, 12)}… in this RFP.`);
+      throw new Error(
+        `No commitment found for wallet ${params.walletAddress.slice(0, 12)}… in this RFP.`,
+      );
     }
 
     const vendorSlot = stored.commitments[slot];
@@ -241,48 +364,71 @@ export class ContractService {
       throw new Error('Your bid has already been revealed on-chain.');
     }
 
-    // Retrieve private bid & salt
-    const privateKey = `rfp:${params.contractAddress}:wallet:${normalizedWallet}`;
-    const rawPrivateData = localStorage.getItem(privateKey);
-    if (!rawPrivateData) {
-      throw new Error('No local private bid data found for this wallet. Bids can only be revealed from the device/browser where they were committed.');
+    params.onStatus?.('Loading private witness from local vault…');
+    const ps = await readPrivateState(params.contractAddress, params.walletAddress);
+    if (!ps || ps.bid === undefined || ps.salt === undefined) {
+      throw new Error(
+        'No local private bid data found. Bids can only be revealed from the device/browser where they were committed.',
+      );
     }
 
-    const { bid: bidStr, salt: saltHex } = JSON.parse(rawPrivateData);
-    const bid = BigInt(bidStr);
-    const salt = hexToBytes(saltHex);
-
-    // Verify commitment authenticity in ZK
-    const computedHash = computeCommitment(bid, salt);
-    const computedHashHex = bytesToHex(computedHash);
-
-    if (computedHashHex !== vendorSlot.commitmentHashHex) {
+    // Local sanity check before spending gas
+    const computedHash = computeCommitment(ps.bid, ps.salt);
+    if (bytesToHex(computedHash) !== vendorSlot.commitmentHashHex) {
       throw new Error('Commitment mismatch: local bid and salt do not match on-chain commitment.');
     }
 
-    // Range checks
-    const minBid = BigInt(stored.minBid);
-    const maxBid = BigInt(stored.maxBid);
-    if (bid < minBid) {
-      throw new Error(`Bid ${bid} is below minimum allowed tender bid (${minBid}).`);
-    }
-    if (bid > maxBid) {
-      throw new Error(`Bid ${bid} exceeds maximum allowable budget (${maxBid}).`);
-    }
+    setNetworkId(NETWORK_ID);
 
+    params.onStatus?.('Building providers & finding deployed contract…');
+    const providers = await buildProviders(params.wallet);
+    const psId = privateStateId(params.contractAddress, params.walletAddress);
+
+    const found = await findDeployedContract(providers as any, {
+      compiledContract: CompiledSealedBidContract as any,
+      contractAddress:  params.contractAddress as any,
+      privateStateId:   psId,
+    } as any);
+
+    params.onStatus?.(`Generating ZK proof for reveal_bid (slot ${slot}) — 30–60 s…`);
+
+    // Real ZK transaction: proves range + authenticity without disclosing bid value
+    await found.callTx.reveal_bid(BigInt(slot));
+
+    params.onStatus?.('Bid revealed on Midnight ledger. Updating local state…');
+
+    // Update local cache
     vendorSlot.revealed = true;
     saveStoredRFP(stored);
 
-    // Auto-determine winner if all committed vendors have revealed
+    // Auto-determine winner when all participating vendors (minimum 2) have revealed on-chain
     const totalCommitted = Object.keys(stored.commitments).length;
     const totalRevealed = Object.values(stored.commitments).filter(v => v.revealed).length;
-    if (totalCommitted > 0 && totalRevealed === totalCommitted) {
-      await this.determineWinner({ contractAddress: params.contractAddress });
+    if (totalCommitted >= 2 && totalRevealed >= totalCommitted) {
+      try {
+        await this.determineWinner({
+          contractAddress: params.contractAddress,
+          wallet: params.wallet,
+          onStatus: params.onStatus,
+        });
+      } catch {
+        // Non-fatal: winner can be determined manually from Results tab
+      }
     }
 
     return { success: true };
   }
 
+  // ── Close commit phase early (local-only demo aid) ───────────────────────
+
+  /**
+   * Closes the commit phase locally — no on-chain transaction.
+   *
+   * The Compact contract enforces deadlines via block-time assertions
+   * (blockTimeLt / blockTimeGte) and has no "early close" circuit.
+   * This method only updates the local cache so the UI advances to the
+   * Reveal phase for demo / testing purposes.
+   */
   static async finalizeCommitPhaseEarly(params: {
     contractAddress: string;
     callerAddress: string;
@@ -299,14 +445,32 @@ export class ContractService {
     const remainingRevealDuration = Math.max(60, stored.revealDeadline - stored.commitDeadline);
     stored.commitDeadline = now;
     stored.revealDeadline = now + remainingRevealDuration;
+    stored.earlyClosed = true;
 
     saveStoredRFP(stored);
   }
 
+  // ── Determine winner ─────────────────────────────────────────────────────
+
+  /**
+   * Submits a `determine_winner` transaction.
+   *
+   * The ZK circuit takes all vendors' bids and salts as private witnesses,
+   * re-verifies each commitment, computes the minimum bid in zero knowledge,
+   * and records ONLY the winning slot index on the public ledger.
+   *
+   * Note: This requires all vendors' private states to be available in the
+   * caller's localStorage (i.e., same device that processed all commits).
+   */
   static async determineWinner(params: {
     contractAddress: string;
-    wallet?: ConnectedAPI | null;
+    wallet: ConnectedAPI;
+    onStatus?: (msg: string) => void;
   }): Promise<{ winnerSlot: number; winnerWallet: string }> {
+    if (!params.wallet) {
+      throw new Error('A connected Midnight wallet is required to determine the winner.');
+    }
+
     const stored = getStoredRFP(params.contractAddress);
     if (!stored) {
       throw new Error(`Contract ${params.contractAddress} not found.`);
@@ -317,42 +481,102 @@ export class ContractService {
       throw new Error('No vendors have revealed their bids yet.');
     }
 
-    // Find the minimum bid among all revealed vendors
-    let lowestBid: bigint | null = null;
-    let winnerSlot = revealedVendors[0].slot;
-    let winnerWallet = revealedVendors[0].walletAddress;
+    // Build a combined private state with all vendors' bids and salts
+    params.onStatus?.('Assembling private witnesses for all revealed vendors…');
+    const allBids: Record<number, bigint> = {};
+    const allSalts: Record<number, Uint8Array> = {};
 
     for (const vendor of revealedVendors) {
-      const privateKey = `rfp:${params.contractAddress}:wallet:${vendor.walletAddress.toLowerCase()}`;
-      const rawPrivateData = localStorage.getItem(privateKey);
-      if (rawPrivateData) {
-        const { bid } = JSON.parse(rawPrivateData);
-        const bidBigInt = BigInt(bid);
-        if (lowestBid === null || bidBigInt < lowestBid) {
-          lowestBid = bidBigInt;
-          winnerSlot = vendor.slot;
-          winnerWallet = vendor.walletAddress;
-        }
+      const ps = await readPrivateState(params.contractAddress, vendor.walletAddress);
+      if (ps?.bid !== undefined && ps?.salt !== undefined) {
+        allBids[vendor.slot] = ps.bid;
+        allSalts[vendor.slot] = ps.salt;
       }
     }
 
-    stored.winnerSlot = winnerSlot;
+    setNetworkId(NETWORK_ID);
+
+    // Store the combined private state under a unique ID for this call
+    const combinedPsId = `${params.contractAddress}:determine_winner`;
+    const privateStateProv = makeLocalStoragePrivateStateProvider();
+    await privateStateProv.set(combinedPsId, { bids: allBids, salts: allSalts });
+
+    params.onStatus?.('Building providers & finding deployed contract…');
+    const providers = await buildProviders(params.wallet);
+
+    const found = await findDeployedContract(providers as any, {
+      compiledContract: CompiledSealedBidContract as any,
+      contractAddress:  params.contractAddress as any,
+      privateStateId:   combinedPsId,
+    } as any);
+
+    params.onStatus?.('Generating ZK proof for determine_winner — 30–60 s…');
+
+    // Real ZK transaction: computes minimum bid in ZK, records winner slot on-chain
+    await found.callTx.determine_winner();
+
+    params.onStatus?.('Winner recorded on Midnight ledger. Reading result…');
+
+    // Read the winner from live indexer state
+    const { contractState } = await getPublicStates(providers.publicDataProvider, params.contractAddress as any);
+    const ledgerState = SealedBid.ledger((contractState as any)?.data ?? contractState);
+    const winnerIndex = Number(ledgerState.result.winner_index);
+
+    // Map winner index back to wallet address
+    const winnerEntry = Object.values(stored.commitments).find(c => c.slot === winnerIndex);
+    const winnerWallet = winnerEntry?.walletAddress ?? '';
+
+    // Update local cache
+    stored.winnerSlot = winnerIndex;
     stored.winnerWallet = winnerWallet;
-    stored.proofValid = true;
+    stored.proofValid = ledgerState.result.proof_valid;
     saveStoredRFP(stored);
 
-    return { winnerSlot, winnerWallet };
+    return { winnerSlot: winnerIndex, winnerWallet };
   }
 
+  // ── Verify fairness ──────────────────────────────────────────────────────
+
+  /**
+   * Reads `result.proof_valid` from the live on-chain ledger via the indexer.
+   * If a wallet is available, this can also submit `verify_fairness` as a view
+   * circuit call — but since it's a pure read, we prefer the cheaper indexer path.
+   */
   static async verifyFairness(params: {
     contractAddress: string;
     wallet?: ConnectedAPI | null;
+    onStatus?: (msg: string) => void;
   }): Promise<boolean> {
-    const stored = getStoredRFP(params.contractAddress);
-    if (!stored) return false;
-    return stored.proofValid;
+    params.onStatus?.('Reading on-chain fairness proof from Midnight indexer…');
+
+    // Try live indexer read first (no wallet needed, no gas)
+    try {
+      const { publicDataProvider } = buildReadProviders();
+      const { contractState } = await getPublicStates(publicDataProvider, params.contractAddress as any);
+      const ledgerState = SealedBid.ledger((contractState as any)?.data ?? contractState);
+      const isValid = ledgerState.result.proof_valid;
+
+      // Update local cache to match on-chain truth
+      const stored = getStoredRFP(params.contractAddress);
+      if (stored) {
+        stored.proofValid = isValid;
+        saveStoredRFP(stored);
+      }
+
+      return isValid;
+    } catch {
+      // Fallback: read from local cache if indexer is unreachable
+      const stored = getStoredRFP(params.contractAddress);
+      return stored?.proofValid ?? false;
+    }
   }
 
+  // ── Read RFP state (sync, for UI) ────────────────────────────────────────
+
+  /**
+   * Reads RFP state from the local cache synchronously.
+   * The cache is refreshed asynchronously by useRFP's indexer subscription.
+   */
   static getRFPState(contractAddress: string | null): RFPState {
     if (!contractAddress) {
       return {
@@ -410,7 +634,6 @@ export class ContractService {
 
     if (stored.proofValid || stored.winnerSlot !== null || (now >= stored.revealDeadline && revealedCount > 0)) {
       phase = 'Closed';
-      secondsLeft = 0;
     } else if (now >= stored.commitDeadline) {
       phase = 'Revealing';
       secondsLeft = Math.max(0, stored.revealDeadline - now);
@@ -435,5 +658,78 @@ export class ContractService {
       revealedCount,
       secondsLeft,
     };
+  }
+
+  /**
+   * Syncs the local cache from the live Midnight indexer.
+   * Called by useRFP after each indexer update.
+   * Returns the updated RFPState, or null if the contract is not yet indexed.
+   */
+  static async syncFromIndexer(contractAddress: string): Promise<RFPState | null> {
+    try {
+      const { publicDataProvider } = buildReadProviders();
+      const { contractState } = await getPublicStates(publicDataProvider, contractAddress as any);
+      const ls = SealedBid.ledger((contractState as any)?.data ?? contractState);
+
+      // Decode description bytes to string
+      const description = new TextDecoder().decode(ls.rfp.description).replace(/\0/g, '').trim();
+      const commitDeadline = Number(ls.rfp.commit_deadline);
+      const revealDeadline = Number(ls.rfp.reveal_deadline);
+      const minBid = ls.rfp.min_bid;
+      const maxBid = ls.rfp.max_bid;
+
+      // Merge on-chain commitment map into local cache
+      const stored = getStoredRFP(contractAddress) ?? {
+        contractAddress,
+        creatorAddress: '',
+        description,
+        commitDeadline,
+        revealDeadline,
+        minBid: minBid.toString(),
+        maxBid: maxBid.toString(),
+        createdAt: Math.floor(Date.now() / 1000),
+        commitments: {},
+        walletToSlot: {},
+        winnerSlot: null,
+        winnerWallet: null,
+        proofValid: false,
+      };
+
+      // Update fields from indexer
+      stored.description = description;
+      stored.commitDeadline = commitDeadline;
+      stored.revealDeadline = revealDeadline;
+      stored.minBid = minBid.toString();
+      stored.maxBid = maxBid.toString();
+      stored.proofValid = ls.result.proof_valid;
+
+      if (ls.result.proof_valid) {
+        stored.winnerSlot = Number(ls.result.winner_index);
+      }
+
+      // Sync commitment revealed flags from on-chain map
+      for (const [slotBig, vc] of ls.commitments) {
+        const slot = Number(slotBig);
+        if (stored.commitments[slot]) {
+          stored.commitments[slot].revealed = vc.revealed;
+          stored.commitments[slot].commitmentHashHex = bytesToHex(vc.commitment_hash);
+        } else {
+          // New commitment from another user (different browser)
+          stored.commitments[slot] = {
+            slot,
+            walletAddress: '',  // unknown — indexer doesn't expose wallet address
+            commitmentHashHex: bytesToHex(vc.commitment_hash),
+            revealed: vc.revealed,
+            committedAt: Math.floor(Date.now() / 1000),
+          };
+        }
+      }
+
+      saveStoredRFP(stored);
+      return ContractService.getRFPState(contractAddress);
+    } catch {
+      // Indexer unreachable or contract not yet indexed — return local cache
+      return null;
+    }
   }
 }

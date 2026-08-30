@@ -8,9 +8,27 @@
 
 ---
 
+## 📋 Contract Address & Preprod Deployment
+
+The smart contract is deployed and verified on the **Midnight Preprod** testnet:
+
+| Parameter | Details |
+|---|---|
+| **Network** | Midnight Preprod (`preprod`) |
+| **Contract Address** | [`9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268`](https://explorer.1am.xyz/address/9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268?network=preprod) |
+| **Deployment Tx Hash** | [`e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294`](https://explorer.1am.xyz/tx/e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294?network=preprod) |
+| **1AM Explorer (Contract)** | [View Contract on 1AM Explorer](https://explorer.1am.xyz/address/9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268?network=preprod) |
+| **1AM Explorer (Deployment Tx)** | [View Deployment Tx on 1AM Explorer](https://explorer.1am.xyz/tx/e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294?network=preprod) |
+| **Midnight Explorer** | [View Contract on Midnight Explorer](https://preprod.midnightexplorer.com/contracts/0x9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268) |
+| **Subscan Explorer** | [View Contract on Subscan](https://midnight-preprod.subscan.io/account/0x9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268) |
+| **Indexer GraphQL** | `https://indexer.preprod.midnight.network/api/v4/graphql` |
+| **Proof Server** | `https://proof-server.preprod.midnight.network` |
+
+---
+
 ## 🔗 Live Demo & Video Walkthrough
 
-- 🌐 **Live DApp Demo**: [https://sealed-bid-rfp.vercel.app](https://sealed-bid-rfp.vercel.app)
+- 🌐 **Live DApp Demo**: [https://sealed-bid-rfp-ui.vercel.app/](https://sealed-bid-rfp-ui.vercel.app/)
 - 🎥 **Video Demo**: [Google Drive Video Link](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
 
 ---
@@ -142,6 +160,9 @@ cd sealed-bid-rfp
 # Install dependencies
 npm install
 
+# Start the Midnight Proof Server (required for local zero-knowledge proof generation)
+docker run -d --name midnight-proof-server -p 6300:6300 midnightntwrk/proof-server:8.0.3
+
 # Compile the Compact contract (optional if using pre-compiled artifacts)
 npm run compile
 
@@ -149,7 +170,7 @@ npm run compile
 npm run build
 
 # Start frontend dev server
-npm --prefix ui run dev
+npm run dev
 ```
 
 ---
@@ -160,16 +181,17 @@ npm --prefix ui run dev
 npm test
 ```
 
-The test suite runs 9 automated tests verifying:
+The test suite runs 10 automated tests verifying:
 1. Deterministic and collision-resistant commitment hashing
 2. Contract state transitions & initialization
 3. Witness isolation from public ledger
 4. End-to-end flow: 3 vendors commit → reveal → lowest bidder wins → fairness verified
-5. Rejection of invalid reveal with tampered bid/salt
-6. Rejection of late reveals after reveal deadline
-7. Rejection of out-of-range bids
-8. Prevention of double-commitments
-9. Total absence of raw bid leakage in public ledger structures
+5. 2-vendor fast flow: 2 vendors commit → reveal → lowest bidder wins (supports rapid testing)
+6. Rejection of invalid reveal with tampered bid/salt
+7. Rejection of late reveals after reveal deadline
+8. Rejection of out-of-range bids
+9. Prevention of double-commitments
+10. Total absence of raw bid leakage in public ledger structures
 
 ---
 

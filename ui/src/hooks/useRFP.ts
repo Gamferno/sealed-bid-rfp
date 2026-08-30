@@ -53,7 +53,13 @@ export type UseRFPReturn = {
 };
 
 /**
- * Fetches public RFP state from the Midnight indexer and local storage cache.
+ * Fetches and tracks RFP state for a given contract address.
+ *
+ * State is sourced from two layers:
+ *   1. Local cache (localStorage) — fast synchronous read for instant UI paint.
+ *   2. Midnight Indexer (async) — refreshed every 10 s and on any on-chain event.
+ *      Updates the local cache and re-renders the UI automatically.
+ *
  * `contractAddress` — 64-char hex address of the deployed contract.
  */
 export function useRFP(contractAddress: string | null): UseRFPReturn {
@@ -64,39 +70,33 @@ export function useRFP(contractAddress: string | null): UseRFPReturn {
 
   const refresh = useCallback(() => setTick(t => t + 1), []);
 
+  // ── 1-second timer: recompute phase / countdown from local cache ──────────
   useEffect(() => {
     if (!contractAddress) {
       setRFP(INITIAL_STATE);
       return;
     }
+
     let cancelled = false;
 
-    const fetchState = () => {
+    const fetchLocalState = () => {
       try {
         const state = ContractService.getRFPState(contractAddress);
-        if (!cancelled) {
-          setRFP(state);
-        }
+        if (!cancelled) setRFP(state);
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Failed to fetch RFP state');
+        if (!cancelled) setError(e?.message ?? 'Failed to read RFP state');
       }
     };
 
-    fetchState();
+    fetchLocalState();
+    const interval = setInterval(fetchLocalState, 1_000);
 
-    // 1-second interval for real-time timer countdown
-    const interval = setInterval(fetchState, 1_000);
-
-    // Listen for cross-tab sync events
+    // Cross-tab sync via StorageEvent and custom BroadcastChannel event
     const handleStorage = (e: StorageEvent) => {
-      if (e.key?.includes(contractAddress)) {
-        fetchState();
-      }
+      if (e.key?.includes(contractAddress)) fetchLocalState();
     };
     const handleCustomEvent = (e: any) => {
-      if (e.detail?.contractAddress === contractAddress) {
-        fetchState();
-      }
+      if (e.detail?.contractAddress === contractAddress) fetchLocalState();
     };
 
     window.addEventListener('storage', handleStorage);
@@ -110,7 +110,37 @@ export function useRFP(contractAddress: string | null): UseRFPReturn {
     };
   }, [contractAddress, tick]);
 
+  // ── Indexer sync: pull live on-chain state every 10 s ────────────────────
+  useEffect(() => {
+    if (!contractAddress) return;
+
+    let cancelled = false;
+
+    const syncIndexer = async () => {
+      if (cancelled) return;
+      setLoading(true);
+      try {
+        const updatedState = await ContractService.syncFromIndexer(contractAddress);
+        if (!cancelled && updatedState) {
+          setRFP(updatedState);
+          setError(null);
+        }
+      } catch {
+        // Indexer sync errors are non-fatal; local cache remains the source of truth
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    // Run once immediately, then every 10 seconds
+    syncIndexer();
+    const indexerInterval = setInterval(syncIndexer, 10_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(indexerInterval);
+    };
+  }, [contractAddress, tick]);
+
   return { rfp, loading, error, refresh };
 }
-
-

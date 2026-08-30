@@ -58,8 +58,8 @@ export function RevealBid({
       : 0;
 
   const handleReveal = async () => {
-    if (!wallet && !walletAddress) {
-      setError('Please connect your Midnight wallet first.');
+    if (!wallet) {
+      setError('Please connect your Midnight wallet first — a real wallet is required to submit a ZK reveal on-chain.');
       return;
     }
     if (!contractAddress) {
@@ -69,17 +69,16 @@ export function RevealBid({
 
     setSubmitting(true);
     setError(null);
-    setStatus('Loading private witness from local vault & verifying commitment…');
 
     try {
-      setStatus('Running reveal_bid.zkir circuit: proving range & authenticity…');
       await ContractService.revealBid({
         contractAddress,
         walletAddress,
         wallet,
+        onStatus: setStatus,
       });
 
-      setStatus('Bid revealed successfully! Authenticity verified in ZK on Midnight ledger.');
+      setStatus('✓ Bid revealed on Midnight ledger — ZK range & authenticity proof confirmed.');
     } catch (e: any) {
       setError(e?.message ?? 'Failed to reveal bid');
     } finally {
@@ -179,19 +178,12 @@ export function RevealBid({
         </div>
       ) : !isRevealPhase ? (
         <div className="panel panel-blue" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <IconClock size={15} style={{ verticalAlign: '-2px', marginRight: 8 }} />
-              <strong>Commit phase is active</strong> — {formatTime(rfp.secondsLeft)} remaining.
-              <div className="muted-note" style={{ marginTop: 4 }}>
-                Reveal unlocks automatically when the countdown completes.
-              </div>
+          <div>
+            <IconClock size={15} style={{ verticalAlign: '-2px', marginRight: 8 }} />
+            <strong>Commit phase is active</strong> — {formatTime(rfp.secondsLeft)} remaining.
+            <div className="muted-note" style={{ marginTop: 4 }}>
+              Zero-knowledge reveals will unlock on-chain as soon as this commit countdown reaches 00:00.
             </div>
-            {onAdvanceEarly && rfp.totalVendors > 0 && (
-              <button className="btn-secondary btn-sm" onClick={onAdvanceEarly}>
-                Close Commit Phase Early (Demo)
-              </button>
-            )}
           </div>
         </div>
       ) : (

@@ -244,7 +244,7 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('verify_fairness',
                                      'argument 1 (as invoked from Typescript)',
-                                     'sealed-bid.compact line 200 char 1',
+                                     'sealed-bid.compact line 231 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
@@ -752,55 +752,14 @@ export class Contract {
                                                                                         { popeq: { cached: false,
                                                                                                    result: undefined } }]).value)).revealed,
                             'vendor 1 has not revealed');
-    let tmp_4, tmp_5;
-    __compactRuntime.assert((tmp_5 = 2n,
-                             _descriptor_2.fromValue(__compactRuntime.queryLedgerState(context,
-                                                                                       partialProofData,
-                                                                                       [
-                                                                                        { dup: { n: 0 } },
-                                                                                        { idx: { cached: false,
-                                                                                                 pushPath: false,
-                                                                                                 path: [
-                                                                                                        { tag: 'value',
-                                                                                                          value: { value: _descriptor_0.toValue(1n),
-                                                                                                                   alignment: _descriptor_0.alignment() } }] } },
-                                                                                        { push: { storage: false,
-                                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(tmp_5),
-                                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
-                                                                                        'member',
-                                                                                        { popeq: { cached: true,
-                                                                                                   result: undefined } }]).value))
-                            &&
-                            (tmp_4 = 2n,
-                             _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
-                                                                                       partialProofData,
-                                                                                       [
-                                                                                        { dup: { n: 0 } },
-                                                                                        { idx: { cached: false,
-                                                                                                 pushPath: false,
-                                                                                                 path: [
-                                                                                                        { tag: 'value',
-                                                                                                          value: { value: _descriptor_0.toValue(1n),
-                                                                                                                   alignment: _descriptor_0.alignment() } }] } },
-                                                                                        { idx: { cached: false,
-                                                                                                 pushPath: false,
-                                                                                                 path: [
-                                                                                                        { tag: 'value',
-                                                                                                          value: { value: _descriptor_0.toValue(tmp_4),
-                                                                                                                   alignment: _descriptor_0.alignment() } }] } },
-                                                                                        { popeq: { cached: false,
-                                                                                                   result: undefined } }]).value)).revealed,
-                            'vendor 2 has not revealed');
     const bid0_0 = this._getBid_0(context, partialProofData, 0n);
     const salt0_0 = this._getSalt_0(context, partialProofData, 0n);
     const bid1_0 = this._getBid_0(context, partialProofData, 1n);
     const salt1_0 = this._getSalt_0(context, partialProofData, 1n);
-    const bid2_0 = this._getBid_0(context, partialProofData, 2n);
-    const salt2_0 = this._getSalt_0(context, partialProofData, 2n);
-    let tmp_6;
+    let tmp_4;
     __compactRuntime.assert(this._equal_1(this._computeCommitment_0(bid0_0,
                                                                     salt0_0),
-                                          (tmp_6 = 0n,
+                                          (tmp_4 = 0n,
                                            _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                                      partialProofData,
                                                                                                      [
@@ -815,15 +774,15 @@ export class Contract {
                                                                                                                pushPath: false,
                                                                                                                path: [
                                                                                                                       { tag: 'value',
-                                                                                                                        value: { value: _descriptor_0.toValue(tmp_6),
+                                                                                                                        value: { value: _descriptor_0.toValue(tmp_4),
                                                                                                                                  alignment: _descriptor_0.alignment() } }] } },
                                                                                                       { popeq: { cached: false,
                                                                                                                  result: undefined } }]).value)).commitment_hash),
                             'vendor 0 bid does not match commitment');
-    let tmp_7;
+    let tmp_5;
     __compactRuntime.assert(this._equal_2(this._computeCommitment_0(bid1_0,
                                                                     salt1_0),
-                                          (tmp_7 = 1n,
+                                          (tmp_5 = 1n,
                                            _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                                      partialProofData,
                                                                                                      [
@@ -838,48 +797,260 @@ export class Contract {
                                                                                                                pushPath: false,
                                                                                                                path: [
                                                                                                                       { tag: 'value',
-                                                                                                                        value: { value: _descriptor_0.toValue(tmp_7),
+                                                                                                                        value: { value: _descriptor_0.toValue(tmp_5),
                                                                                                                                  alignment: _descriptor_0.alignment() } }] } },
                                                                                                       { popeq: { cached: false,
                                                                                                                  result: undefined } }]).value)).commitment_hash),
                             'vendor 1 bid does not match commitment');
-    let tmp_8;
-    __compactRuntime.assert(this._equal_3(this._computeCommitment_0(bid2_0,
-                                                                    salt2_0),
-                                          (tmp_8 = 2n,
-                                           _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
-                                                                                                     partialProofData,
-                                                                                                     [
-                                                                                                      { dup: { n: 0 } },
-                                                                                                      { idx: { cached: false,
-                                                                                                               pushPath: false,
-                                                                                                               path: [
-                                                                                                                      { tag: 'value',
-                                                                                                                        value: { value: _descriptor_0.toValue(1n),
-                                                                                                                                 alignment: _descriptor_0.alignment() } }] } },
-                                                                                                      { idx: { cached: false,
-                                                                                                               pushPath: false,
-                                                                                                               path: [
-                                                                                                                      { tag: 'value',
-                                                                                                                        value: { value: _descriptor_0.toValue(tmp_8),
-                                                                                                                                 alignment: _descriptor_0.alignment() } }] } },
-                                                                                                      { popeq: { cached: false,
-                                                                                                                 result: undefined } }]).value)).commitment_hash),
-                            'vendor 2 bid does not match commitment');
     const min01_0 = bid0_0 <= bid1_0 ? bid0_0 : bid1_0;
     const winner01_0 = bid0_0 <= bid1_0 ? 0n : 1n;
-    const winner_index_0 = min01_0 <= bid2_0 ? winner01_0 : 2n;
-    const tmp_9 = { winner_index: winner_index_0, proof_valid: true };
-    __compactRuntime.queryLedgerState(context,
-                                      partialProofData,
-                                      [
-                                       { push: { storage: false,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(2n),
-                                                                                              alignment: _descriptor_0.alignment() }).encode() } },
-                                       { push: { storage: true,
-                                                 value: __compactRuntime.StateValue.newCell({ value: _descriptor_4.toValue(tmp_9),
-                                                                                              alignment: _descriptor_4.alignment() }).encode() } },
-                                       { ins: { cached: false, n: 1 } }]);
+    let tmp_6, tmp_7;
+    if ((tmp_7 = 2n,
+         _descriptor_2.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                   partialProofData,
+                                                                   [
+                                                                    { dup: { n: 0 } },
+                                                                    { idx: { cached: false,
+                                                                             pushPath: false,
+                                                                             path: [
+                                                                                    { tag: 'value',
+                                                                                      value: { value: _descriptor_0.toValue(1n),
+                                                                                               alignment: _descriptor_0.alignment() } }] } },
+                                                                    { push: { storage: false,
+                                                                              value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(tmp_7),
+                                                                                                                           alignment: _descriptor_0.alignment() }).encode() } },
+                                                                    'member',
+                                                                    { popeq: { cached: true,
+                                                                               result: undefined } }]).value))
+        &&
+        (tmp_6 = 2n,
+         _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                   partialProofData,
+                                                                   [
+                                                                    { dup: { n: 0 } },
+                                                                    { idx: { cached: false,
+                                                                             pushPath: false,
+                                                                             path: [
+                                                                                    { tag: 'value',
+                                                                                      value: { value: _descriptor_0.toValue(1n),
+                                                                                               alignment: _descriptor_0.alignment() } }] } },
+                                                                    { idx: { cached: false,
+                                                                             pushPath: false,
+                                                                             path: [
+                                                                                    { tag: 'value',
+                                                                                      value: { value: _descriptor_0.toValue(tmp_6),
+                                                                                               alignment: _descriptor_0.alignment() } }] } },
+                                                                    { popeq: { cached: false,
+                                                                               result: undefined } }]).value)).revealed)
+    {
+      const bid2_0 = this._getBid_0(context, partialProofData, 2n);
+      const salt2_0 = this._getSalt_0(context, partialProofData, 2n);
+      let tmp_8;
+      __compactRuntime.assert(this._equal_3(this._computeCommitment_0(bid2_0,
+                                                                      salt2_0),
+                                            (tmp_8 = 2n,
+                                             _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                                                       partialProofData,
+                                                                                                       [
+                                                                                                        { dup: { n: 0 } },
+                                                                                                        { idx: { cached: false,
+                                                                                                                 pushPath: false,
+                                                                                                                 path: [
+                                                                                                                        { tag: 'value',
+                                                                                                                          value: { value: _descriptor_0.toValue(1n),
+                                                                                                                                   alignment: _descriptor_0.alignment() } }] } },
+                                                                                                        { idx: { cached: false,
+                                                                                                                 pushPath: false,
+                                                                                                                 path: [
+                                                                                                                        { tag: 'value',
+                                                                                                                          value: { value: _descriptor_0.toValue(tmp_8),
+                                                                                                                                   alignment: _descriptor_0.alignment() } }] } },
+                                                                                                        { popeq: { cached: false,
+                                                                                                                   result: undefined } }]).value)).commitment_hash),
+                              'vendor 2 bid does not match commitment');
+      const min02_0 = min01_0 <= bid2_0 ? min01_0 : bid2_0;
+      const winner02_0 = min01_0 <= bid2_0 ? winner01_0 : 2n;
+      let tmp_9, tmp_10;
+      if ((tmp_10 = 3n,
+           _descriptor_2.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                     partialProofData,
+                                                                     [
+                                                                      { dup: { n: 0 } },
+                                                                      { idx: { cached: false,
+                                                                               pushPath: false,
+                                                                               path: [
+                                                                                      { tag: 'value',
+                                                                                        value: { value: _descriptor_0.toValue(1n),
+                                                                                                 alignment: _descriptor_0.alignment() } }] } },
+                                                                      { push: { storage: false,
+                                                                                value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(tmp_10),
+                                                                                                                             alignment: _descriptor_0.alignment() }).encode() } },
+                                                                      'member',
+                                                                      { popeq: { cached: true,
+                                                                                 result: undefined } }]).value))
+          &&
+          (tmp_9 = 3n,
+           _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                     partialProofData,
+                                                                     [
+                                                                      { dup: { n: 0 } },
+                                                                      { idx: { cached: false,
+                                                                               pushPath: false,
+                                                                               path: [
+                                                                                      { tag: 'value',
+                                                                                        value: { value: _descriptor_0.toValue(1n),
+                                                                                                 alignment: _descriptor_0.alignment() } }] } },
+                                                                      { idx: { cached: false,
+                                                                               pushPath: false,
+                                                                               path: [
+                                                                                      { tag: 'value',
+                                                                                        value: { value: _descriptor_0.toValue(tmp_9),
+                                                                                                 alignment: _descriptor_0.alignment() } }] } },
+                                                                      { popeq: { cached: false,
+                                                                                 result: undefined } }]).value)).revealed)
+      {
+        const bid3_0 = this._getBid_0(context, partialProofData, 3n);
+        const salt3_0 = this._getSalt_0(context, partialProofData, 3n);
+        let tmp_11;
+        __compactRuntime.assert(this._equal_4(this._computeCommitment_0(bid3_0,
+                                                                        salt3_0),
+                                              (tmp_11 = 3n,
+                                               _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                                                         partialProofData,
+                                                                                                         [
+                                                                                                          { dup: { n: 0 } },
+                                                                                                          { idx: { cached: false,
+                                                                                                                   pushPath: false,
+                                                                                                                   path: [
+                                                                                                                          { tag: 'value',
+                                                                                                                            value: { value: _descriptor_0.toValue(1n),
+                                                                                                                                     alignment: _descriptor_0.alignment() } }] } },
+                                                                                                          { idx: { cached: false,
+                                                                                                                   pushPath: false,
+                                                                                                                   path: [
+                                                                                                                          { tag: 'value',
+                                                                                                                            value: { value: _descriptor_0.toValue(tmp_11),
+                                                                                                                                     alignment: _descriptor_0.alignment() } }] } },
+                                                                                                          { popeq: { cached: false,
+                                                                                                                     result: undefined } }]).value)).commitment_hash),
+                                'vendor 3 bid does not match commitment');
+        const min03_0 = min02_0 <= bid3_0 ? min02_0 : bid3_0;
+        const winner03_0 = min02_0 <= bid3_0 ? winner02_0 : 3n;
+        let tmp_12, tmp_13;
+        if ((tmp_13 = 4n,
+             _descriptor_2.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                       partialProofData,
+                                                                       [
+                                                                        { dup: { n: 0 } },
+                                                                        { idx: { cached: false,
+                                                                                 pushPath: false,
+                                                                                 path: [
+                                                                                        { tag: 'value',
+                                                                                          value: { value: _descriptor_0.toValue(1n),
+                                                                                                   alignment: _descriptor_0.alignment() } }] } },
+                                                                        { push: { storage: false,
+                                                                                  value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(tmp_13),
+                                                                                                                               alignment: _descriptor_0.alignment() }).encode() } },
+                                                                        'member',
+                                                                        { popeq: { cached: true,
+                                                                                   result: undefined } }]).value))
+            &&
+            (tmp_12 = 4n,
+             _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                       partialProofData,
+                                                                       [
+                                                                        { dup: { n: 0 } },
+                                                                        { idx: { cached: false,
+                                                                                 pushPath: false,
+                                                                                 path: [
+                                                                                        { tag: 'value',
+                                                                                          value: { value: _descriptor_0.toValue(1n),
+                                                                                                   alignment: _descriptor_0.alignment() } }] } },
+                                                                        { idx: { cached: false,
+                                                                                 pushPath: false,
+                                                                                 path: [
+                                                                                        { tag: 'value',
+                                                                                          value: { value: _descriptor_0.toValue(tmp_12),
+                                                                                                   alignment: _descriptor_0.alignment() } }] } },
+                                                                        { popeq: { cached: false,
+                                                                                   result: undefined } }]).value)).revealed)
+        {
+          const bid4_0 = this._getBid_0(context, partialProofData, 4n);
+          const salt4_0 = this._getSalt_0(context, partialProofData, 4n);
+          let tmp_14;
+          __compactRuntime.assert(this._equal_5(this._computeCommitment_0(bid4_0,
+                                                                          salt4_0),
+                                                (tmp_14 = 4n,
+                                                 _descriptor_3.fromValue(__compactRuntime.queryLedgerState(context,
+                                                                                                           partialProofData,
+                                                                                                           [
+                                                                                                            { dup: { n: 0 } },
+                                                                                                            { idx: { cached: false,
+                                                                                                                     pushPath: false,
+                                                                                                                     path: [
+                                                                                                                            { tag: 'value',
+                                                                                                                              value: { value: _descriptor_0.toValue(1n),
+                                                                                                                                       alignment: _descriptor_0.alignment() } }] } },
+                                                                                                            { idx: { cached: false,
+                                                                                                                     pushPath: false,
+                                                                                                                     path: [
+                                                                                                                            { tag: 'value',
+                                                                                                                              value: { value: _descriptor_0.toValue(tmp_14),
+                                                                                                                                       alignment: _descriptor_0.alignment() } }] } },
+                                                                                                            { popeq: { cached: false,
+                                                                                                                       result: undefined } }]).value)).commitment_hash),
+                                  'vendor 4 bid does not match commitment');
+          const winner04_0 = min03_0 <= bid4_0 ? winner03_0 : 4n;
+          const tmp_15 = { winner_index: winner04_0, proof_valid: true };
+          __compactRuntime.queryLedgerState(context,
+                                            partialProofData,
+                                            [
+                                             { push: { storage: false,
+                                                       value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(2n),
+                                                                                                    alignment: _descriptor_0.alignment() }).encode() } },
+                                             { push: { storage: true,
+                                                       value: __compactRuntime.StateValue.newCell({ value: _descriptor_4.toValue(tmp_15),
+                                                                                                    alignment: _descriptor_4.alignment() }).encode() } },
+                                             { ins: { cached: false, n: 1 } }]);
+        } else {
+          const tmp_16 = { winner_index: winner03_0, proof_valid: true };
+          __compactRuntime.queryLedgerState(context,
+                                            partialProofData,
+                                            [
+                                             { push: { storage: false,
+                                                       value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(2n),
+                                                                                                    alignment: _descriptor_0.alignment() }).encode() } },
+                                             { push: { storage: true,
+                                                       value: __compactRuntime.StateValue.newCell({ value: _descriptor_4.toValue(tmp_16),
+                                                                                                    alignment: _descriptor_4.alignment() }).encode() } },
+                                             { ins: { cached: false, n: 1 } }]);
+        }
+      } else {
+        const tmp_17 = { winner_index: winner02_0, proof_valid: true };
+        __compactRuntime.queryLedgerState(context,
+                                          partialProofData,
+                                          [
+                                           { push: { storage: false,
+                                                     value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(2n),
+                                                                                                  alignment: _descriptor_0.alignment() }).encode() } },
+                                           { push: { storage: true,
+                                                     value: __compactRuntime.StateValue.newCell({ value: _descriptor_4.toValue(tmp_17),
+                                                                                                  alignment: _descriptor_4.alignment() }).encode() } },
+                                           { ins: { cached: false, n: 1 } }]);
+      }
+    } else {
+      const tmp_18 = { winner_index: winner01_0, proof_valid: true };
+      __compactRuntime.queryLedgerState(context,
+                                        partialProofData,
+                                        [
+                                         { push: { storage: false,
+                                                   value: __compactRuntime.StateValue.newCell({ value: _descriptor_0.toValue(2n),
+                                                                                                alignment: _descriptor_0.alignment() }).encode() } },
+                                         { push: { storage: true,
+                                                   value: __compactRuntime.StateValue.newCell({ value: _descriptor_4.toValue(tmp_18),
+                                                                                                alignment: _descriptor_4.alignment() }).encode() } },
+                                         { ins: { cached: false, n: 1 } }]);
+    }
     return [];
   }
   _verify_fairness_0(context, partialProofData) {
@@ -909,6 +1080,14 @@ export class Contract {
     return true;
   }
   _equal_3(x0, y0) {
+    if (!x0.every((x, i) => y0[i] === x)) { return false; }
+    return true;
+  }
+  _equal_4(x0, y0) {
+    if (!x0.every((x, i) => y0[i] === x)) { return false; }
+    return true;
+  }
+  _equal_5(x0, y0) {
     if (!x0.every((x, i) => y0[i] === x)) { return false; }
     return true;
   }

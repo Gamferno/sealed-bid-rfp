@@ -39,80 +39,80 @@ export function Results({
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const minVendorsRequired = 2;
+  const hasMinVendors = rfp.totalVendors >= minVendorsRequired;
+  const allVendorsRevealed = hasMinVendors && rfp.revealedCount >= rfp.totalVendors;
   const canDetermineWinner =
     rfp.winnerIndex === null &&
-    rfp.revealedCount > 0 &&
-    (rfp.phase === 'Revealing' || rfp.phase === 'Closed' || rfp.revealedCount === rfp.totalVendors);
+    allVendorsRevealed;
 
   const handleDetermineWinner = async () => {
+    if (!wallet) {
+      setError('Please connect your Midnight wallet first — a real wallet is required to finalize the winner on-chain.');
+      return;
+    }
     if (!contractAddress) return;
     setDetermining(true);
     setError(null);
-    setStatusMsg('Running the determine_winner.zkir min-finding circuit across revealed bids…');
     try {
-      const res = await ContractService.determineWinner({ contractAddress, wallet });
-      setStatusMsg(`Winner determined: Vendor Slot #${res.winnerSlot} (${trunc(res.winnerWallet)}).`);
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to finalize winner');
+      const res = await ContractService.determineWinner({
+        contractAddress,
+        wallet,
+        onStatus: setStatusMsg,
+      });
+      if (res !== null) {
+        setStatusMsg(`Winner finalized on-chain! Winning slot: Vendor #${res.winnerSlot}`);
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to finalize winner on-chain');
     } finally {
       setDetermining(false);
     }
   };
 
   const handleVerify = async () => {
-    if (!wallet && !walletAddress) {
-      setError('Please connect your Midnight wallet first.');
-      return;
-    }
-    if (!contractAddress) {
-      setError('Contract address is required.');
-      return;
-    }
+    if (!contractAddress) return;
     setVerifying(true);
     setError(null);
     try {
-      const isValid = await ContractService.verifyFairness({ contractAddress, wallet });
-      setFairness(isValid);
-    } catch (e: any) {
-      setError(e?.message ?? 'Verification failed');
+      const valid = await ContractService.verifyFairness({
+        contractAddress,
+        onStatus: setStatusMsg,
+      });
+      setFairness(valid);
+      setStatusMsg(valid ? 'Fairness proof verified on-chain via Midnight indexer.' : 'Verification failed.');
+    } catch (err: any) {
+      setError(err?.message ?? 'Verification failed');
     } finally {
       setVerifying(false);
     }
   };
 
+  const isComplete = rfp.winnerIndex !== null;
+
   return (
     <section id="results" className="card view-card">
-      <div className="card-header">
-        <div className="card-title">
-          <span className="title-icon">
-            <IconTrophy size={18} />
-          </span>
-          <div>
-            <h2>Round Settlement &amp; Fairness Audit</h2>
-            <p className="card-sub">
-              The winner is determined in zero knowledge: only the winning slot index is disclosed. All bid amounts remain permanently private.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {rfp.winnerIndex === null ? (
-        <div className="empty-state">
+      {!isComplete ? (
+        <div className="empty-state card">
           <div className="empty-state-icon">
-            <IconTrophy size={26} />
+            <IconSparkles size={36} />
           </div>
           <h2>
             {rfp.phase === 'Committing'
               ? 'Commit Phase in Progress'
-              : 'Awaiting ZK Reveals'}
+              : allVendorsRevealed
+              ? 'Ready for ZK Winner Settlement'
+              : 'Awaiting Vendor Reveals'}
           </h2>
           <p>
             {rfp.phase === 'Committing'
               ? 'Vendors are sealing their commitments. Settlement opens once bids are revealed.'
-              : `${rfp.revealedCount} of ${rfp.totalVendors} vendors have revealed their bids.`}
+              : allVendorsRevealed
+              ? `All ${rfp.totalVendors} participating vendor(s) have revealed their commitments. You can now execute the ZK circuit to determine the lowest bidder.`
+              : `${rfp.revealedCount} of ${Math.max(rfp.totalVendors, minVendorsRequired)} vendors have revealed. The on-chain Compact circuit requires at least 2 vendor slots to submit & reveal before computing the minimum bidder.`}
           </p>
 
-          {canDetermineWinner && (
+          {canDetermineWinner ? (
             <div className="empty-state-actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
               <button
                 id="determine-winner-early"
@@ -133,6 +133,12 @@ export function Results({
                 )}
               </button>
             </div>
+          ) : (
+            rfp.phase !== 'Committing' && (
+              <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: '0.85rem', color: '#94a3b8' }}>
+                💡 <strong>Next Step:</strong> Go to the <strong>Submit Bid</strong> and <strong>Reveal Bid</strong> tabs to submit commitments and reveals for remaining vendor slots (minimum 2 vendors required).
+              </div>
+            )
           )}
 
           {error && <p className="form-status err" style={{ marginTop: 14 }}>{error}</p>}

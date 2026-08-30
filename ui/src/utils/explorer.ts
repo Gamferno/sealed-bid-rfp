@@ -15,13 +15,17 @@ export function getSubscanBaseUrl(): string {
 
 export function getContractExplorerUrl(contractAddress?: string): string {
   const base = getExplorerBaseUrl();
-  if (!contractAddress) return base;
+  if (!contractAddress || contractAddress.trim() === '') {
+    return `${base}/contracts`;
+  }
   const cleanAddr = contractAddress.startsWith('0x') ? contractAddress : `0x${contractAddress}`;
-  return `${base}/search?q=${cleanAddr}`;
+  return `${base}/contracts/${cleanAddr}`;
 }
 
 export function getSubscanContractUrl(contractAddress?: string): string {
-  if (!contractAddress) return SUBSCAN_EXPLORER_BASE;
+  if (!contractAddress || contractAddress.trim() === '') {
+    return SUBSCAN_EXPLORER_BASE;
+  }
   const cleanAddr = contractAddress.startsWith('0x') ? contractAddress : `0x${contractAddress}`;
   return `${SUBSCAN_EXPLORER_BASE}/account/${cleanAddr}`;
 }

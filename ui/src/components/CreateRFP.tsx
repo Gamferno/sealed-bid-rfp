@@ -45,8 +45,8 @@ export function CreateRFP({ wallet, walletAddress, contractAddress: _contractAdd
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!wallet && !walletAddress) {
-      setError('Please connect your Midnight wallet first.');
+    if (!wallet) {
+      setError('Please connect your Midnight wallet first — a real wallet is required to deploy the contract on-chain.');
       return;
     }
 
@@ -59,7 +59,6 @@ export function CreateRFP({ wallet, walletAddress, contractAddress: _contractAdd
 
     setSubmitting(true);
     setError(null);
-    setStatus('Compiling parameters & deploying Compact smart contract to Midnight Preprod…');
 
     try {
       const commitSec = Math.max(30, Math.round(Number(commitDurationMinutes) * 60));
@@ -73,9 +72,10 @@ export function CreateRFP({ wallet, walletAddress, contractAddress: _contractAdd
         maxBid: maxNum,
         creatorAddress: walletAddress,
         wallet,
+        onStatus: setStatus,
       });
 
-      setStatus(`Smart contract deployed successfully: ${result.contractAddress.slice(0, 16)}…`);
+      setStatus(`✓ Contract deployed on Midnight Preprod: ${result.contractAddress.slice(0, 16)}…`);
       onCreated(result.contractAddress);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to deploy RFP contract');

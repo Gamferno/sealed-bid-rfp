@@ -46,8 +46,8 @@ export function SubmitBid({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!wallet && !walletAddress) {
-      setError('Please connect your Midnight wallet first.');
+    if (!wallet) {
+      setError('Please connect your Midnight wallet first — a real wallet is required to submit a bid on-chain.');
       return;
     }
     if (!contractAddress) {
@@ -71,13 +71,10 @@ export function SubmitBid({
 
     setSubmitting(true);
     setError(null);
-    setStatus('Generating random 256-bit salt & computing Poseidon ZK commitment…');
 
     try {
       const salt = new Uint8Array(32);
       crypto.getRandomValues(salt);
-
-      setStatus('Submitting cryptographic commitment to Midnight smart contract…');
 
       const result = await ContractService.submitCommitment({
         contractAddress,
@@ -85,10 +82,11 @@ export function SubmitBid({
         bid: numericBid,
         salt,
         wallet,
+        onStatus: setStatus,
       });
 
       setBid('');
-      setStatus(`Bid sealed successfully in Vendor Slot #${result.slot}.`);
+      setStatus(`✓ Bid sealed on Midnight ledger — Vendor Slot #${result.slot}.`);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to submit commitment');
     } finally {

@@ -32,6 +32,7 @@ type Page = 'create' | 'bid' | 'reveal' | 'results';
 
 const LAST_CONTRACT_KEY = 'midnight_last_active_rfp_address';
 const NETWORK_ID = import.meta.env.VITE_NETWORK_ID ?? 'preprod';
+export const DEFAULT_PREPROD_CONTRACT = '9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268';
 
 const STEPS: { page: Page; stepNum: string; label: string; icon: (p: { size?: number }) => ReactElement }[] = [
   { page: 'create', stepNum: '01', label: 'Create RFP', icon: IconFile },
@@ -67,7 +68,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>('bid');
   const [contractAddress, setContractAddress] = useState(() =>
-    localStorage.getItem(LAST_CONTRACT_KEY) ?? '',
+    localStorage.getItem(LAST_CONTRACT_KEY) ?? DEFAULT_PREPROD_CONTRACT,
   );
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [inspectorModalOpen, setInspectorModalOpen] = useState(false);

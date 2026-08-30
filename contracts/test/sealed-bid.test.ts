@@ -169,6 +169,144 @@ describe('Sealed-Bid RFP Smart Contract Test Suite', () => {
     expect(fairnessRes.result).toBe(true);
   });
 
+  it('4b. valid_flow_2_vendors — only 2 vendors commit, reveal, and determine the lowest bidder as winner', () => {
+    const bids = { 0: 350n, 1: 180n };
+    const salts = { 0: saltA, 1: saltB };
+
+    const witnesses = createWitnesses();
+    const contract = new Contract(witnesses);
+    const privateState: SealedBidPrivateState = { bids, salts };
+
+    const constructorContext: runtime.ConstructorContext<SealedBidPrivateState> = {
+      initialPrivateState: privateState,
+      initialZswapLocalState: {},
+    };
+
+    const cResult = contract.initialState(
+      constructorContext,
+      stringToBytes128('2-Vendor Tender Test'),
+      1000n,
+      2000n,
+      100n,
+      500n,
+    );
+
+    let state = cResult.currentContractState;
+    const addr = createDummyAddress();
+
+    const makeCircuitContext = (
+      blockTime: bigint,
+    ): runtime.CircuitContext<SealedBidPrivateState> =>
+      runtime.createCircuitContext(
+        addr,
+        runtime.dummyUserAddress(),
+        state,
+        privateState,
+        undefined,
+        undefined,
+        blockTime,
+      );
+
+    // Phase 1: 2 vendors commit
+    const commitTime = 500n;
+    const commit0 = contract.circuits.commit_bid(makeCircuitContext(commitTime), 0n);
+    state.data = commit0.context.currentQueryContext.state;
+
+    const commit1 = contract.circuits.commit_bid(makeCircuitContext(commitTime), 1n);
+    state.data = commit1.context.currentQueryContext.state;
+
+    let l = ledger(state.data);
+    expect(l.commitments.size()).toBe(2n);
+    expect(l.commitments.lookup(0n).revealed).toBe(false);
+    expect(l.commitments.lookup(1n).revealed).toBe(false);
+
+    // Phase 2: 2 vendors reveal
+    const revealTime = 1500n;
+    const reveal0 = contract.circuits.reveal_bid(makeCircuitContext(revealTime), 0n);
+    state.data = reveal0.context.currentQueryContext.state;
+
+    const reveal1 = contract.circuits.reveal_bid(makeCircuitContext(revealTime), 1n);
+    state.data = reveal1.context.currentQueryContext.state;
+
+    l = ledger(state.data);
+    expect(l.reveal_count).toBe(2n);
+    expect(l.commitments.lookup(0n).revealed).toBe(true);
+    expect(l.commitments.lookup(1n).revealed).toBe(true);
+
+    // Phase 3: Determine winner with only 2 vendors
+    const finalizeTime = 2100n;
+    const winnerRes = contract.circuits.determine_winner(makeCircuitContext(finalizeTime));
+    state.data = winnerRes.context.currentQueryContext.state;
+
+    l = ledger(state.data);
+    expect(l.result.proof_valid).toBe(true);
+    expect(l.result.winner_index).toBe(1n); // Vendor 1 has the lower bid (180n vs 350n)
+
+    // Phase 4: Verify fairness
+    const fairnessRes = contract.circuits.verify_fairness(makeCircuitContext(finalizeTime));
+    expect(fairnessRes.result).toBe(true);
+  });
+
+  it('4c. valid_flow_4_vendors — 4 vendors commit, reveal, and determine lowest bidder dynamically', () => {
+    const saltD = generateSalt();
+    const bids = { 0: 400n, 1: 300n, 2: 200n, 3: 150n };
+    const salts = { 0: saltA, 1: saltB, 2: saltC, 3: saltD };
+
+    const witnesses = createWitnesses();
+    const contract = new Contract(witnesses);
+    const privateState: SealedBidPrivateState = { bids, salts };
+
+    const constructorContext: runtime.ConstructorContext<SealedBidPrivateState> = {
+      initialPrivateState: privateState,
+      initialZswapLocalState: {},
+    };
+
+    const cResult = contract.initialState(
+      constructorContext,
+      stringToBytes128('4-Vendor Tender Test'),
+      1000n,
+      2000n,
+      100n,
+      500n,
+    );
+
+    let state = cResult.currentContractState;
+    const addr = createDummyAddress();
+
+    const makeCircuitContext = (
+      blockTime: bigint,
+    ): runtime.CircuitContext<SealedBidPrivateState> =>
+      runtime.createCircuitContext(
+        addr,
+        runtime.dummyUserAddress(),
+        state,
+        privateState,
+        undefined,
+        undefined,
+        blockTime,
+      );
+
+    // Commit 4 vendors
+    for (let i = 0n; i < 4n; i++) {
+      const commit = contract.circuits.commit_bid(makeCircuitContext(500n), i);
+      state.data = commit.context.currentQueryContext.state;
+    }
+
+    // Reveal 4 vendors
+    for (let i = 0n; i < 4n; i++) {
+      const reveal = contract.circuits.reveal_bid(makeCircuitContext(1500n), i);
+      state.data = reveal.context.currentQueryContext.state;
+    }
+
+    // Determine winner
+    const winnerRes = contract.circuits.determine_winner(makeCircuitContext(2100n));
+    state.data = winnerRes.context.currentQueryContext.state;
+
+    const l = ledger(state.data);
+    expect(l.result.proof_valid).toBe(true);
+    expect(l.result.winner_index).toBe(3n); // Vendor 3 has the lowest bid (150n)
+  });
+
   it('5. invalid_reveal — mismatched bid/salt fails commitment check', () => {
     const witnesses = createWitnesses();
     const contract = new Contract(witnesses);

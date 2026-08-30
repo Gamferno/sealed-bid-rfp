@@ -158,37 +158,68 @@ export circuit reveal_bid(vendor_index: Uint<8>): [] {
 // ──────────────────────────────────────────────
 
 export circuit determine_winner(): [] {
-  // Every vendor must have revealed before the winner can be computed
+  // At least 2 vendors (vendor 0 and vendor 1) must have revealed before the winner can be computed
   assert(commitments.member(0) && commitments.lookup(0).revealed, "vendor 0 has not revealed");
   assert(commitments.member(1) && commitments.lookup(1).revealed, "vendor 1 has not revealed");
-  assert(commitments.member(2) && commitments.lookup(2).revealed, "vendor 2 has not revealed");
 
-  // Each vendor provides their bid + salt again via witnesses (NOT disclosed)
+  // Re-verify bids for vendors 0 and 1
   const bid0 = getBid(0);
   const salt0 = getSalt(0);
   const bid1 = getBid(1);
   const salt1 = getSalt(1);
-  const bid2 = getBid(2);
-  const salt2 = getSalt(2);
 
-  // Re-verify each bid matches its stored commitment
   assert(computeCommitment(bid0, salt0) == commitments.lookup(0).commitment_hash,
     "vendor 0 bid does not match commitment");
   assert(computeCommitment(bid1, salt1) == commitments.lookup(1).commitment_hash,
     "vendor 1 bid does not match commitment");
-  assert(computeCommitment(bid2, salt2) == commitments.lookup(2).commitment_hash,
-    "vendor 2 bid does not match commitment");
 
-  // Find minimum bid (Compact has no if-expression; ternary ?: is the tool)
-  const min01        = bid0 <= bid1 ? bid0 : bid1;
-  const winner01     = bid0 <= bid1 ? (0 as Uint<8>) : (1 as Uint<8>);
-  const winner_index = min01 <= bid2 ? winner01 : (2 as Uint<8>);
+  const min01    = bid0 <= bid1 ? bid0 : bid1;
+  const winner01 = bid0 <= bid1 ? (0 as Uint<8>) : (1 as Uint<8>);
 
-  // Disclose ONLY the winner index — bid amounts are NOT disclosed
-  result = AuctionResult {
-    winner_index: disclose(winner_index),
-    proof_valid:  true
-  };
+  if (disclose(commitments.member(2) && commitments.lookup(2).revealed)) {
+    const bid2 = getBid(2);
+    const salt2 = getSalt(2);
+    assert(computeCommitment(bid2, salt2) == commitments.lookup(2).commitment_hash,
+      "vendor 2 bid does not match commitment");
+    const min02    = min01 <= bid2 ? min01 : bid2;
+    const winner02 = min01 <= bid2 ? winner01 : (2 as Uint<8>);
+
+    if (disclose(commitments.member(3) && commitments.lookup(3).revealed)) {
+      const bid3 = getBid(3);
+      const salt3 = getSalt(3);
+      assert(computeCommitment(bid3, salt3) == commitments.lookup(3).commitment_hash,
+        "vendor 3 bid does not match commitment");
+      const min03    = min02 <= bid3 ? min02 : bid3;
+      const winner03 = min02 <= bid3 ? winner02 : (3 as Uint<8>);
+
+      if (disclose(commitments.member(4) && commitments.lookup(4).revealed)) {
+        const bid4 = getBid(4);
+        const salt4 = getSalt(4);
+        assert(computeCommitment(bid4, salt4) == commitments.lookup(4).commitment_hash,
+          "vendor 4 bid does not match commitment");
+        const winner04 = min03 <= bid4 ? winner03 : (4 as Uint<8>);
+        result = AuctionResult {
+          winner_index: disclose(winner04),
+          proof_valid:  true
+        };
+      } else {
+        result = AuctionResult {
+          winner_index: disclose(winner03),
+          proof_valid:  true
+        };
+      }
+    } else {
+      result = AuctionResult {
+        winner_index: disclose(winner02),
+        proof_valid:  true
+      };
+    }
+  } else {
+    result = AuctionResult {
+      winner_index: disclose(winner01),
+      proof_valid:  true
+    };
+  }
 }
 
 // ──────────────────────────────────────────────
