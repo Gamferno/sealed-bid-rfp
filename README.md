@@ -2,34 +2,16 @@
 
 [![CI](https://github.com/Gamferno/sealed-bid-rfp/actions/workflows/ci.yml/badge.svg)](https://github.com/Gamferno/sealed-bid-rfp/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-blue?style=flat&logo=vercel)](https://sealed-bid-rfp-ui.vercel.app/)
-[![Demo Video](https://img.shields.io/badge/Demo_Video-Google_Drive-red?style=flat&logo=googledrive)](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
+[![Demo Video](https://img.shields.io/badge/Demo_Video-Google_Drive-red?style=flat&logo=googledrive)](https://drive.google.com/file/d/1Q4a_ezfprmTpCYECzlpNm63eKRCk4vgL/view?usp=sharing)
 
 > A privacy-preserving procurement platform where vendors submit cryptographically sealed bids on an RFP, the lowest bid wins on-chain, and every losing bid stays permanently private — while anyone can mathematically verify the winner was chosen fairly. Built on the [Midnight Network](https://midnight.network).
-
----
-
-## 📋 Contract Address & Preprod Deployment
-
-The smart contract is deployed and verified on the **Midnight Preprod** testnet:
-
-| Parameter | Details |
-|---|---|
-| **Network** | Midnight Preprod (`preprod`) |
-| **Contract Address** | [`9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268`](https://explorer.1am.xyz/address/9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268?network=preprod) |
-| **Deployment Tx Hash** | [`e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294`](https://explorer.1am.xyz/tx/e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294?network=preprod) |
-| **1AM Explorer (Contract)** | [View Contract on 1AM Explorer](https://explorer.1am.xyz/address/9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268?network=preprod) |
-| **1AM Explorer (Deployment Tx)** | [View Deployment Tx on 1AM Explorer](https://explorer.1am.xyz/tx/e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294?network=preprod) |
-| **Midnight Explorer** | [View Contract on Midnight Explorer](https://preprod.midnightexplorer.com/contracts/0x9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268) |
-| **Subscan Explorer** | [View Contract on Subscan](https://midnight-preprod.subscan.io/account/0x9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268) |
-| **Indexer GraphQL** | `https://indexer.preprod.midnight.network/api/v4/graphql` |
-| **Proof Server** | `https://proof-server.preprod.midnight.network` |
 
 ---
 
 ## 🔗 Live Demo & Video Walkthrough
 
 - 🌐 **Live DApp Demo**: [https://sealed-bid-rfp-ui.vercel.app/](https://sealed-bid-rfp-ui.vercel.app/)
-- 🎥 **Video Demo**: [Google Drive Video Link](https://drive.google.com/file/d/1UsOcwqE3YmjjjkV7un3-yYFtLukGW5ga/view?usp=sharing)
+- 🎥 **Video Demo**: [Google Drive Video Link](https://drive.google.com/file/d/1Q4a_ezfprmTpCYECzlpNm63eKRCk4vgL/view?usp=sharing)
 
 ---
 
@@ -139,6 +121,15 @@ Zero-knowledge minimum evaluation discloses only the winner's index and records 
 | **Wallet Connector** | 1AM or Lace (Midnight DApp Connector API) |
 | **Testing** | Vitest (9 automated integration tests) |
 | **CI/CD** | GitHub Actions |
+
+---
+
+## 📋 Preprod Deployment
+
+The smart contract is deployed on the **Midnight Preprod** testnet:
+
+- **Contract Address**: [`9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268`](https://explorer.1am.xyz/address/9922d2c2fa4467bd04463fd870c6b76073d6a4ab21b8531a4f20a6a01ca54268?network=preprod)
+- **Deployment Transaction**: [`e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294`](https://explorer.1am.xyz/tx/e87e1cd74faefaf4ffbeb6526b63635865e4412c9ea3d0193f69a59c2f1b1294?network=preprod)
 
 ---
 
